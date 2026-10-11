@@ -62,8 +62,24 @@ const listeners = new Set<(event: string, payload?: any) => void>();
 let isChannelSubscribed = false;
 const pendingBroadcasts: Array<{ type: string; data?: any }> = [];
 
-// Helper untuk mengeksekusi listener tanpa blocking
+// Helper untuk mengeksekusi listener tanpa blocking dan mencegah duplicate events
+let lastEventSignature = '';
+let lastEventTimestamp = 0;
+
+// Session ID unik untuk browser/tab ini guna mencegah self-echo yang memicu re-render saat pengguna mengetik
+export const CLIENT_SESSION_ID = typeof window !== 'undefined' 
+  ? ((window as any).__SIMPEL_CLIENT_ID || ((window as any).__SIMPEL_CLIENT_ID = 'client_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now())) 
+  : 'server_instance';
+
 const dispatchToListeners = (type: string, payload?: any) => {
+  const sig = `${type}_${payload?.table || ''}_${payload?.eventType || ''}_${payload?.new?.id || payload?.old?.id || payload?.id || ''}_${payload?.timestamp || ''}`;
+  const now = Date.now();
+  if (sig === lastEventSignature && now - lastEventTimestamp < 60) {
+    return; // Cegah pemanggilan ganda dalam interval 60ms
+  }
+  lastEventSignature = sig;
+  lastEventTimestamp = now;
+
   listeners.forEach((callback) => {
     try {
       callback(type, payload);
@@ -96,6 +112,10 @@ export const initSupabaseRealtime = (): RealtimeChannel => {
 
     // A. Dengarkan Realtime Broadcast antar browser/device untuk 'zero-latency feel'
     realtimeChannel.on('broadcast', { event: 'data_changed' }, (payload) => {
+      // Cegah self-echo: jika event ini dikirim oleh tab/klien ini sendiri, abaikan agar tidak memicu re-render saat mengetik
+      if (payload?.payload?.senderId === CLIENT_SESSION_ID) {
+        return;
+      }
       const type = payload?.payload?.type || 'remote_update';
       dispatchToListeners(type, payload?.payload);
     });
@@ -122,15 +142,6 @@ export const initSupabaseRealtime = (): RealtimeChannel => {
       );
     });
 
-    // C. Global fallback listener jika ada perubahan schema umum
-    realtimeChannel.on(
-      'postgres_changes',
-      { event: '*', schema: 'public' },
-      (payload) => {
-        dispatchToListeners(`postgres_${payload.table}_${payload.eventType}`, payload);
-      }
-    );
-
     // Subscribe ke kanal dengan auto-flush antrean saat tersambung
     realtimeChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -145,6 +156,7 @@ export const initSupabaseRealtime = (): RealtimeChannel => {
               payload: {
                 type: item.type,
                 data: item.data,
+                senderId: CLIENT_SESSION_ID,
                 timestamp: Date.now(),
               },
             }).catch(() => {});
@@ -178,6 +190,7 @@ export const broadcastRealtimeChange = async (type: string, data?: any): Promise
           payload: {
             type,
             data,
+            senderId: CLIENT_SESSION_ID,
             timestamp: Date.now(),
           },
         });

@@ -33,12 +33,28 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
   const [allPeserta, setAllPeserta] = useState(() => StorageService.getPeserta());
   const [allSubmissions, setAllSubmissions] = useState(() => StorageService.getSubmissions());
 
-  // Sinkronisasi otomatis data secara Real-Time detik itu juga dari Supabase CDC & Broadcast
+  // Sinkronisasi otomatis data secara Real-Time selektif (mencegah re-render yang tidak perlu saat mengetik)
   useEffect(() => {
-    const unsub = StorageService.onRemoteChange(() => {
-      setAllMataLomba(StorageService.getMataLomba());
-      setAllPeserta(StorageService.getPeserta());
-      setAllSubmissions(StorageService.getSubmissions());
+    const unsub = StorageService.onRemoteChange((type) => {
+      if (!type || type === 'all_restored' || type === 'cloud_synced') {
+        const nextMl = StorageService.getMataLomba();
+        const nextPes = StorageService.getPeserta();
+        const nextSubs = StorageService.getSubmissions();
+        setAllMataLomba(prev => (JSON.stringify(prev) === JSON.stringify(nextMl) ? prev : nextMl));
+        setAllPeserta(prev => (JSON.stringify(prev) === JSON.stringify(nextPes) ? prev : nextPes));
+        setAllSubmissions(prev => (JSON.stringify(prev) === JSON.stringify(nextSubs) ? prev : nextSubs));
+        return;
+      }
+      if (type === 'matalomba' || type === 'mata_lomba') {
+        const nextMl = StorageService.getMataLomba();
+        setAllMataLomba(prev => (JSON.stringify(prev) === JSON.stringify(nextMl) ? prev : nextMl));
+      } else if (type === 'peserta') {
+        const nextPes = StorageService.getPeserta();
+        setAllPeserta(prev => (JSON.stringify(prev) === JSON.stringify(nextPes) ? prev : nextPes));
+      } else if (type === 'submissions') {
+        const nextSubs = StorageService.getSubmissions();
+        setAllSubmissions(prev => (JSON.stringify(prev) === JSON.stringify(nextSubs) ? prev : nextSubs));
+      }
     });
     return unsub;
   }, []);
@@ -114,7 +130,7 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
   useEffect(() => {
     if (!currentMl || !activePeserta) return;
 
-    setAutoSaveStatus('saving');
+    setAutoSaveStatus(prev => (prev === 'saving' ? prev : 'saving'));
     // 1. Simpan seketika ke LocalStorage agar saat refresh browser isian tidak pernah hilang
     StorageService.saveJuriDraft(currentUser.id, currentMl.id, activePeserta.id, {
       scoresMap,
@@ -125,7 +141,7 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
       paktaAgreed,
     });
 
-    // 2. Debounce auto-save ke Supabase Database secara real-time
+    // 2. Debounce auto-save ke Supabase Database secara real-time (800ms aman dari keystroke terus menerus)
     const timer = setTimeout(() => {
       const formattedNilaiKriteria: ItemNilaiKriteria[] = currentMl.kriteriaList.map(crit => ({
         kriteriaId: crit.id,
@@ -159,7 +175,7 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
         StorageService.addOrUpdateSubmission(subToSave);
       }
       setAutoSaveStatus('saved');
-    }, 600);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [scoresMap, waktuDetik, pelanggaranList, catatanJuri, tandaTanganUrl, paktaAgreed, currentMl?.id, activePeserta?.id]);

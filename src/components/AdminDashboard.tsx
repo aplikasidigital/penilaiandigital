@@ -87,8 +87,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return saved || 'overview';
   });
 
+  const activeTabRef = React.useRef(activeTab);
+  activeTabRef.current = activeTab;
+
   const setActiveTab = (tab: AdminTab) => {
     setActiveTabState(tab);
+    if (tab === 'settings') {
+      setLocalConfig(StorageService.getEventConfig());
+    }
     if (typeof window !== 'undefined') {
       localStorage.setItem('simpel_admin_active_tab', tab);
     }
@@ -112,20 +118,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         StorageService.saveEventConfig(localConfig);
         onUpdateEventConfig(localConfig);
       }
-    }, 700);
+    }, 800);
     return () => clearTimeout(timer);
   }, [localConfig, isSuperAdmin, onUpdateEventConfig]);
 
-  // Sinkronisasi otomatis data secara Real-Time detik itu juga dari Supabase CDC & Broadcast
+  // Sinkronisasi otomatis data secara Real-Time selektif per jenis event (Mencegah re-render massal & typing bug)
   useEffect(() => {
-    const unsub = StorageService.onRemoteChange(() => {
-      setMataLombaList(StorageService.getMataLomba());
-      setPesertaList(StorageService.getPeserta());
-      setSubmissions(StorageService.getSubmissions());
-      setUsersList(StorageService.getUsers());
-      setTopupList(StorageService.getTopupRequests());
-      setVotingCategories(StorageService.getVotingCategories());
-      setLocalConfig(StorageService.getEventConfig());
+    const unsub = StorageService.onRemoteChange((type) => {
+      if (!type || type === 'all_restored' || type === 'cloud_synced') {
+        const nextMl = StorageService.getMataLomba();
+        const nextPes = StorageService.getPeserta();
+        const nextSubs = StorageService.getSubmissions();
+        const nextUsers = StorageService.getUsers();
+        const nextTopup = StorageService.getTopupRequests();
+        const nextVc = StorageService.getVotingCategories();
+
+        setMataLombaList(prev => (JSON.stringify(prev) === JSON.stringify(nextMl) ? prev : nextMl));
+        setPesertaList(prev => (JSON.stringify(prev) === JSON.stringify(nextPes) ? prev : nextPes));
+        setSubmissions(prev => (JSON.stringify(prev) === JSON.stringify(nextSubs) ? prev : nextSubs));
+        setUsersList(prev => (JSON.stringify(prev) === JSON.stringify(nextUsers) ? prev : nextUsers));
+        setTopupList(prev => (JSON.stringify(prev) === JSON.stringify(nextTopup) ? prev : nextTopup));
+        setVotingCategories(prev => (JSON.stringify(prev) === JSON.stringify(nextVc) ? prev : nextVc));
+        if (activeTabRef.current !== 'settings') {
+          const nextCfg = StorageService.getEventConfig();
+          setLocalConfig(prev => (JSON.stringify(prev) === JSON.stringify(nextCfg) ? prev : nextCfg));
+        }
+        return;
+      }
+
+      if (type === 'matalomba' || type === 'mata_lomba') {
+        const next = StorageService.getMataLomba();
+        setMataLombaList(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } else if (type === 'peserta') {
+        const next = StorageService.getPeserta();
+        setPesertaList(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } else if (type === 'submissions') {
+        const next = StorageService.getSubmissions();
+        setSubmissions(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } else if (type === 'users') {
+        const next = StorageService.getUsers();
+        setUsersList(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } else if (type === 'topup_requests') {
+        const next = StorageService.getTopupRequests();
+        setTopupList(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } else if (type === 'voting_categories') {
+        const next = StorageService.getVotingCategories();
+        setVotingCategories(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } else if (type === 'event_config') {
+        // Jangan timpa input teks jika admin sedang aktif berada di tab pengaturan
+        if (activeTabRef.current !== 'settings') {
+          const next = StorageService.getEventConfig();
+          setLocalConfig(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+        }
+      }
     });
     return unsub;
   }, []);

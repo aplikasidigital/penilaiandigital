@@ -610,18 +610,32 @@ function ensureRealtimeSubscribed() {
     }
   });
 
+  // Debounced helper untuk sinkronisasi tabel lengkap di latar belakang
+  const syncTableTimers: Record<string, any> = {};
+  const debounceSyncTable = (table: string) => {
+    if (syncTableTimers[table]) {
+      clearTimeout(syncTableTimers[table]);
+    }
+    syncTableTimers[table] = setTimeout(() => {
+      StorageService.syncTableFromSupabase(table).catch(() => {});
+      delete syncTableTimers[table];
+    }, 1500);
+  };
+
   // Berlangganan Live Real-Time dari Supabase (Cross-Device & Cross-Network)
   subscribeToRealtimeChanges((type, payload) => {
-    // 1. Jika event dari Realtime Broadcast
+    // 1. Jika event dari Realtime Broadcast (Zero-Latency feel)
     if (payload?.data) {
       applyRemoteData(type, payload.data);
       notifyLocalSubscribers(type, payload.data);
+      return;
     }
 
     // 2. Jika event dari Supabase Postgres CDC (INSERT / UPDATE / DELETE)
     if (type.startsWith('postgres_') && payload?.table) {
       StorageService.applyCdcPayload(payload);
-      StorageService.syncTableFromSupabase(payload.table).catch(() => {});
+      debounceSyncTable(payload.table);
+      return;
     }
 
     notifyLocalSubscribers(type, payload);
@@ -772,57 +786,89 @@ export const StorageService = {
     }
   },
 
-  // Sinkronisasi satu tabel saat menerima sinyal Postgres CDC
+  // Sinkronisasi satu tabel saat menerima sinyal Postgres CDC (dengan perbandingan konten untuk mencegah re-render sia-sia)
   async syncTableFromSupabase(cdcType: string) {
     try {
       const cleanTable = cdcType.replace(/^postgres_/, '').replace(/_(INSERT|UPDATE|DELETE)$/, '');
       if (cleanTable === 'submissions') {
         const { data } = await supabase.from('submissions').select('*');
         if (data) {
-          localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, JSON.stringify(data));
-          notifyLocalSubscribers('submissions', data);
+          const prev = localStorage.getItem(STORAGE_KEYS.SUBMISSIONS);
+          const next = JSON.stringify(data);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.SUBMISSIONS, next);
+            notifyLocalSubscribers('submissions', data);
+          }
         }
       } else if (cleanTable === 'peserta') {
         const { data } = await supabase.from('peserta').select('*');
         if (data) {
-          localStorage.setItem(STORAGE_KEYS.PESERTA, JSON.stringify(data));
-          notifyLocalSubscribers('peserta', data);
+          const prev = localStorage.getItem(STORAGE_KEYS.PESERTA);
+          const next = JSON.stringify(data);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.PESERTA, next);
+            notifyLocalSubscribers('peserta', data);
+          }
         }
       } else if (cleanTable === 'mata_lomba' || cleanTable === 'matalomba') {
         const { data } = await supabase.from('mata_lomba').select('*');
         if (data) {
-          localStorage.setItem(STORAGE_KEYS.MATA_LOMBA, JSON.stringify(data));
-          notifyLocalSubscribers('mata_lomba', data);
+          const prev = localStorage.getItem(STORAGE_KEYS.MATA_LOMBA);
+          const next = JSON.stringify(data);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.MATA_LOMBA, next);
+            notifyLocalSubscribers('mata_lomba', data);
+          }
         }
       } else if (cleanTable === 'event_config') {
         const { data } = await supabase.from('event_config').select('*').limit(1);
         if (data && data[0]) {
-          localStorage.setItem(STORAGE_KEYS.EVENT_CONFIG, JSON.stringify(data[0]));
-          notifyLocalSubscribers('event_config', data[0]);
+          const prev = localStorage.getItem(STORAGE_KEYS.EVENT_CONFIG);
+          const next = JSON.stringify(data[0]);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.EVENT_CONFIG, next);
+            notifyLocalSubscribers('event_config', data[0]);
+          }
         }
       } else if (cleanTable === 'vote_records') {
         const { data } = await supabase.from('vote_records').select('*');
         if (data) {
-          localStorage.setItem(STORAGE_KEYS.VOTE_RECORDS, JSON.stringify(data));
-          notifyLocalSubscribers('vote_records', data);
+          const prev = localStorage.getItem(STORAGE_KEYS.VOTE_RECORDS);
+          const next = JSON.stringify(data);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.VOTE_RECORDS, next);
+            notifyLocalSubscribers('vote_records', data);
+          }
         }
       } else if (cleanTable === 'topup_requests') {
         const { data } = await supabase.from('topup_requests').select('*');
         if (data) {
-          localStorage.setItem(STORAGE_KEYS.TOPUP_REQUESTS, JSON.stringify(data));
-          notifyLocalSubscribers('topup_requests', data);
+          const prev = localStorage.getItem(STORAGE_KEYS.TOPUP_REQUESTS);
+          const next = JSON.stringify(data);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.TOPUP_REQUESTS, next);
+            notifyLocalSubscribers('topup_requests', data);
+          }
         }
       } else if (cleanTable === 'voting_categories') {
         const { data } = await supabase.from('voting_categories').select('*');
         if (data) {
-          localStorage.setItem(STORAGE_KEYS.VOTING_CATEGORIES, JSON.stringify(data));
-          notifyLocalSubscribers('voting_categories', data);
+          const prev = localStorage.getItem(STORAGE_KEYS.VOTING_CATEGORIES);
+          const next = JSON.stringify(data);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.VOTING_CATEGORIES, next);
+            notifyLocalSubscribers('voting_categories', data);
+          }
         }
       } else if (cleanTable === 'users') {
         const { data } = await supabase.from('users').select('*');
         if (data) {
-          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(data));
-          notifyLocalSubscribers('users', data);
+          const prev = localStorage.getItem(STORAGE_KEYS.USERS);
+          const next = JSON.stringify(data);
+          if (prev !== next) {
+            localStorage.setItem(STORAGE_KEYS.USERS, next);
+            notifyLocalSubscribers('users', data);
+          }
         }
       }
     } catch {}

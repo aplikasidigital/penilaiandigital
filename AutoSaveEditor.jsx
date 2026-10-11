@@ -11,8 +11,16 @@ export default function AutoSaveEditor({ recordId = 'default-user-id' }) {
   const [status, setStatus] = useState('Saved'); // Status: 'Saved', 'Saving...', 'Error'
   const [loading, setLoading] = useState(true);
 
-  // 1. Fetch Data awal saat komponen dimuat
+  // Ref tracking untuk mencegah race-condition dan typing bug (teks terhapus / melompat)
+  const localValueRef = useRef('');
+  const isTypingRef = useRef(false);
+  const isFocusedRef = useRef(false);
+  const debounceTimerRef = useRef(null);
+
+  // 1. Fetch Data awal saat komponen dimuat & setup Realtime
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchInitialData() {
       setLoading(true);
       const { data, error } = await supabase
@@ -21,19 +29,23 @@ export default function AutoSaveEditor({ recordId = 'default-user-id' }) {
         .eq('user_id', recordId)
         .single();
 
-      if (data) {
-        setContent(data.content || '');
-      } else if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching data:', error.message);
+      if (isMounted) {
+        if (data) {
+          const val = data.content || '';
+          localValueRef.current = val;
+          setContent(val);
+        } else if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching data:', error.message);
+        }
+        setLoading(false);
       }
-      setLoading(false);
     }
 
     fetchInitialData();
 
     // 2. Setup Supabase Realtime Subscription (Mendengar perubahan dari database/client lain)
     const channel = supabase
-      .channel('app_settings_realtime')
+      .channel(`app_settings_${recordId}_realtime`)
       .on(
         'postgres_changes',
         {
@@ -43,16 +55,32 @@ export default function AutoSaveEditor({ recordId = 'default-user-id' }) {
           filter: `user_id=eq.${recordId}`,
         },
         (payload) => {
-          if (payload.new && payload.new.content !== content) {
-            // Update state lokal secara instan jika ada perubahan dari luar/server
-            setContent(payload.new.content);
-            setStatus('Saved');
+          if (!payload.new) return;
+          const remoteContent = payload.new.content || '';
+
+          // A. Jika perubahan ini berasal dari simpanan kita sendiri, abaikan (mencegah loop / overwriting)
+          if (remoteContent === localValueRef.current) {
+            return;
           }
+
+          // B. Jika pengguna sedang aktif mengetik / fokus di textarea, jangan timpa huruf yang sedang diketik
+          if (isTypingRef.current || isFocusedRef.current) {
+            return;
+          }
+
+          // C. Sinkronisasi instan jika ada pembaruan nyata dari perangkat/user lain
+          localValueRef.current = remoteContent;
+          setContent(remoteContent);
+          setStatus('Saved');
         }
       )
       .subscribe();
 
     return () => {
+      isMounted = false;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       supabase.removeChannel(channel);
     };
   }, [recordId]);
@@ -77,19 +105,22 @@ export default function AutoSaveEditor({ recordId = 'default-user-id' }) {
     } else {
       setStatus('Saved');
     }
+    isTypingRef.current = false;
   };
 
-  // 3. Debounce Auto-Save menggunakan useRef & setTimeout (Delay 800ms)
-  const debounceTimerRef = useRef(null);
-
+  // 3. Debounce Auto-Save dengan proteksi state lokal (Delay 800ms)
   const handleTextChange = (e) => {
     const newValue = e.target.value;
     
-    // Optimistic UI: Update state lokal seketika tanpa jeda loading
+    // Simpan nilai terbaru ke ref seketika untuk sinkronisasi tanpa race condition
+    localValueRef.current = newValue;
+    isTypingRef.current = true;
+
+    // Optimistic UI: Update state lokal seketika tanpa jeda
     setContent(newValue);
     setStatus('Saving...');
 
-    // Hapus timer sebelumnya agar jeda dihitung ulang dari ketikan terakhir
+    // Hapus timer sebelumnya agar jeda dihitung ulang dari ketikan terakhir (Debouncing)
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
@@ -121,6 +152,12 @@ export default function AutoSaveEditor({ recordId = 'default-user-id' }) {
       <textarea
         value={content}
         onChange={handleTextChange}
+        onFocus={() => {
+          isFocusedRef.current = true;
+        }}
+        onBlur={() => {
+          isFocusedRef.current = false;
+        }}
         rows={6}
         className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
         placeholder="Ketik sesuatu di sini... Data akan tersimpan otomatis."

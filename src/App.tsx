@@ -64,8 +64,22 @@ export const App: React.FC = () => {
       refreshState();
     });
 
-    const cleanup = StorageService.onRemoteChange(() => {
-      refreshState();
+    const cleanup = StorageService.onRemoteChange((type) => {
+      if (!type || type === 'all_restored' || type === 'cloud_synced') {
+        const nextUser = StorageService.getCurrentUser();
+        const nextCfg = StorageService.getEventConfig();
+        setCurrentUser(prev => (JSON.stringify(prev) === JSON.stringify(nextUser) ? prev : nextUser));
+        setEventConfig(prev => (JSON.stringify(prev) === JSON.stringify(nextCfg) ? prev : nextCfg));
+        return;
+      }
+      if (type === 'auth' || type === 'users') {
+        const nextUser = StorageService.getCurrentUser();
+        setCurrentUser(prev => (JSON.stringify(prev) === JSON.stringify(nextUser) ? prev : nextUser));
+      }
+      if (type === 'event_config') {
+        const nextCfg = StorageService.getEventConfig();
+        setEventConfig(prev => (JSON.stringify(prev) === JSON.stringify(nextCfg) ? prev : nextCfg));
+      }
     });
 
     // Listen to Supabase Google OAuth state changes
@@ -139,10 +153,10 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleUpdateEventConfig = (cfg: EventConfig) => {
+  const handleUpdateEventConfig = useCallback((cfg: EventConfig) => {
     setEventConfig(cfg);
     StorageService.saveEventConfig(cfg);
-  };
+  }, []);
 
   const handleOpenLogin = () => {
     soundService.playClick();
