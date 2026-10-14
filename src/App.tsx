@@ -83,7 +83,7 @@ export const App: React.FC = () => {
     });
 
     // Listen to Supabase Google OAuth state changes
-    const unsubscribeAuth = onAuthStateChange((event, session) => {
+    const unsubscribeAuth = onAuthStateChange((event: any, session: any) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const sbUser = session.user;
         const existingUsers = StorageService.getUsers();

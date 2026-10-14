@@ -74,7 +74,9 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
   const [assessmentMode, setAssessmentMode] = useState<'per_peserta' | 'grid_semua'>('per_peserta');
 
   const currentMl = allMataLomba.find(m => m.id === selectedLombaId) || assignedLomba[0] || allMataLomba[0];
-  const participants = allPeserta.filter(p => p.mataLombaId === currentMl?.id);
+  const participants = allPeserta.filter(
+    p => p.mataLombaId === currentMl?.id || (Array.isArray(p.mataLombaIds) && p.mataLombaIds.includes(currentMl?.id))
+  );
 
   // Single participant mode state - dipulihkan dari localStorage
   const savedPesertaId = typeof window !== 'undefined' ? localStorage.getItem('simpel_juri_selected_peserta') : null;
@@ -220,24 +222,55 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
     }
   };
 
-  // Toggle checklist index
+  // Auto-Checkboxes / Hierarchical Selection:
+  // Ketika juri memilih sebuah tingkat nilai (misal kotak ke-5), maka semua kotak ceklis
+  // di bawahnya (1 s/d 5) secara otomatis ikut tercentang (checked).
+  // Jika kotak yang sedang menjadi nilai tertinggi diklik ulang, juri dapat mengurangi 1 tingkat
+  // atau memilih tingkat yang lebih rendah.
   const handleToggleChecklist = (critId: string, index: number, maxScore: number) => {
     soundService.playClick();
     const current = scoresMap[critId] || { nilai: 0, checkedIndices: [] };
-    const checked = new Set(current.checkedIndices);
+    const currentIndices = [...(current.checkedIndices || [])].sort((a, b) => a - b);
+    const maxChecked = currentIndices.length > 0 ? currentIndices[currentIndices.length - 1] : 0;
 
-    if (checked.has(index)) {
-      checked.delete(index);
+    let updatedIndices: number[] = [];
+
+    if (maxChecked === index) {
+      // Jika kotak tertinggi saat ini diklik kembali, batalkan kotak tersebut (turun 1 level)
+      updatedIndices = Array.from({ length: index - 1 }, (_, i) => i + 1);
     } else {
-      checked.add(index);
+      // Otomatis ceklis semua kotak dari 1 sampai index yang dipilih
+      updatedIndices = Array.from({ length: index }, (_, i) => i + 1);
     }
 
-    const updatedIndices = Array.from(checked).sort((a, b) => a - b);
     setScoresMap(prev => ({
       ...prev,
       [critId]: {
         nilai: updatedIndices.length, // total checkboxes checked = score!
         checkedIndices: updatedIndices,
+      },
+    }));
+  };
+
+  const handleSetChecklistMax = (critId: string, maxScore: number) => {
+    soundService.playClick();
+    const allIndices = Array.from({ length: maxScore }, (_, i) => i + 1);
+    setScoresMap(prev => ({
+      ...prev,
+      [critId]: {
+        nilai: maxScore,
+        checkedIndices: allIndices,
+      },
+    }));
+  };
+
+  const handleResetChecklist = (critId: string) => {
+    soundService.playClick();
+    setScoresMap(prev => ({
+      ...prev,
+      [critId]: {
+        nilai: 0,
+        checkedIndices: [],
       },
     }));
   };
@@ -398,7 +431,9 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                     if (typeof window !== 'undefined') {
                       localStorage.setItem('simpel_juri_selected_lomba', ml.id);
                     }
-                    const psts = allPeserta.filter(p => p.mataLombaId === ml.id);
+                    const psts = allPeserta.filter(
+                      p => p.mataLombaId === ml.id || (Array.isArray(p.mataLombaIds) && p.mataLombaIds.includes(ml.id))
+                    );
                     if (psts.length > 0) handleSelectPeserta(psts[0].id);
                   }}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
@@ -583,8 +618,28 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                             {/* Checklist or Number input depending on type */}
                             {crit.tipe === 'checkbox' ? (
                               <div>
-                                <div className="text-[11px] text-stone-400 mb-1.5">
-                                  Centang kolom kotak sesuai jumlah skor (1 kotak = 1 poin, maksimal {crit.nilaiMaksimal} kotak):
+                                <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 mb-1.5 gap-2">
+                                  <span>
+                                    Klik tingkat nilai (otomatis menceklis kotak 1 s/d tingkat yang dipilih):
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetChecklistMax(crit.id, crit.nilaiMaksimal)}
+                                      className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-semibold cursor-pointer transition-colors"
+                                      title="Centang semua kotak hingga nilai maksimal"
+                                    >
+                                      ✓ Ceklis Semua ({crit.nilaiMaksimal})
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResetChecklist(crit.id)}
+                                      className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-[10px] cursor-pointer transition-colors"
+                                      title="Reset nilai kriteria ini ke 0"
+                                    >
+                                      Reset
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 justify-start items-center text-left">
                                   {Array.from({ length: crit.nilaiMaksimal }, (_, i) => i + 1).map(boxNum => {
@@ -594,6 +649,7 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                                         key={boxNum}
                                         type="button"
                                         onClick={() => handleToggleChecklist(crit.id, boxNum, crit.nilaiMaksimal)}
+                                        title={`Tingkat ${boxNum}: Klik untuk otomatis mencentang kotak 1 s/d ${boxNum}`}
                                         className={`w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer border ${
                                           isChecked
                                             ? 'bg-amber-500 border-amber-400 text-stone-950 shadow ring-1 ring-amber-300'

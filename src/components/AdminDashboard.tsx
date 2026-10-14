@@ -253,6 +253,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     nama: string;
     asalInstansi: string;
     mataLombaId: string;
+    mataLombaIds: string[];
     kategori: string;
   }>({
     nomorUrut: 1,
@@ -260,6 +261,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     nama: '',
     asalInstansi: '',
     mataLombaId: '',
+    mataLombaIds: [],
     kategori: 'Nasional',
   });
 
@@ -486,10 +488,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       id: ml.id,
       kode: ml.kode,
       nama: ml.nama,
-      kategori: ml.kategori,
-      deskripsi: ml.deskripsi,
-      lokasi: ml.lokasi,
-      jadwal: ml.jadwal,
+      kategori: ml.kategori || '',
+      deskripsi: ml.deskripsi || '',
+      lokasi: ml.lokasi || '',
+      jadwal: ml.jadwal || '',
       durasiTargetDetik: ml.durasiTargetDetik,
       durasiMaksimalMenit: ml.durasiMaksimalMenit,
       assignedJuriIds: ml.assignedJuriIds || [],
@@ -639,12 +641,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleOpenCreatePeserta = () => {
     soundService.playClick();
     setEditingPeserta(null);
+    const defaultMl = mataLombaList[0]?.id || '';
     setPesertaFormData({
       nomorUrut: pesertaList.length + 1,
       nomorDada: `PD-${(pesertaList.length + 1).toString().padStart(2, '0')}`,
       nama: '',
       asalInstansi: '',
-      mataLombaId: mataLombaList[0]?.id || '',
+      mataLombaId: defaultMl,
+      mataLombaIds: defaultMl ? [defaultMl] : [],
       kategori: 'Nasional',
     });
     setPesertaModalOpen(true);
@@ -653,13 +657,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleOpenEditPeserta = (pst: Peserta) => {
     soundService.playClick();
     setEditingPeserta(pst);
+    const initialIds = (pst.mataLombaIds && pst.mataLombaIds.length > 0)
+      ? pst.mataLombaIds
+      : (pst.mataLombaId ? [pst.mataLombaId] : []);
+
     setPesertaFormData({
       id: pst.id,
       nomorUrut: pst.nomorUrut,
       nomorDada: pst.nomorDada,
       nama: pst.nama,
       asalInstansi: pst.asalInstansi,
-      mataLombaId: pst.mataLombaId,
+      mataLombaId: initialIds[0] || pst.mataLombaId || '',
+      mataLombaIds: initialIds,
       kategori: pst.kategori || 'Nasional',
     });
     setPesertaModalOpen(true);
@@ -671,12 +680,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       alert('Nama dan Nomor Dada peserta wajib diisi.');
       return;
     }
+    const selectedIds = (pesertaFormData.mataLombaIds && pesertaFormData.mataLombaIds.length > 0)
+      ? pesertaFormData.mataLombaIds
+      : (pesertaFormData.mataLombaId ? [pesertaFormData.mataLombaId] : []);
+
+    if (selectedIds.length === 0) {
+      alert('Pilih minimal satu cabang mata lomba untuk peserta.');
+      return;
+    }
     soundService.playClick();
+
+    const primaryMataLombaId = selectedIds[0];
 
     if (editingPeserta) {
       const updated: Peserta = {
         ...editingPeserta,
         ...pesertaFormData,
+        mataLombaId: primaryMataLombaId,
+        mataLombaIds: selectedIds,
       };
       StorageService.updatePeserta(updated);
       showAlert('success', `Data peserta "${updated.nama}" berhasil diperbarui!`);
@@ -684,6 +705,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const newPst: Peserta = {
         id: 'pst_' + Date.now(),
         ...pesertaFormData,
+        mataLombaId: primaryMataLombaId,
+        mataLombaIds: selectedIds,
       };
       StorageService.updatePeserta(newPst);
       showAlert('success', `Peserta baru "${newPst.nama}" berhasil ditambahkan!`);
@@ -896,7 +919,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditingVotingCat(cat);
     setVotingCatFormData({
       nama: cat.nama,
-      deskripsi: cat.deskripsi,
+      deskripsi: cat.deskripsi || '',
       hargaPerVote: cat.hargaPerVote,
       mataLombaId: cat.mataLombaId || '',
       isActive: cat.isActive,
@@ -1050,7 +1073,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const parts = lines[i].split(',').map(p => p.trim());
         if (parts.length >= 4) {
           const [noUrutStr, noDada, nama, asalInstansi, mlKode, kategori] = parts;
-          const matchedMl = mataLombaList.find(m => m.kode.toLowerCase() === (mlKode || '').toLowerCase()) || mataLombaList[0];
+          const codes = (mlKode || '').split(/[;/|]/).map(c => c.trim().toLowerCase()).filter(Boolean);
+          const matchedMls = mataLombaList.filter(m => codes.includes(m.kode.toLowerCase()));
+          const finalMls = matchedMls.length > 0 ? matchedMls : (mataLombaList[0] ? [mataLombaList[0]] : []);
+          const finalIds = finalMls.map(m => m.id);
 
           curPeserta.push({
             id: 'pst_' + Date.now() + '_' + i,
@@ -1058,7 +1084,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             nomorDada: noDada || `D-${curPeserta.length + 1}`,
             nama: nama || 'Peserta Impor',
             asalInstansi: asalInstansi || '-',
-            mataLombaId: matchedMl.id,
+            mataLombaId: finalIds[0] || mataLombaList[0]?.id || '',
+            mataLombaIds: finalIds,
             kategori: kategori || 'Umum',
           });
           count++;
@@ -1249,7 +1276,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setIsAudioPreviewPlaying(false);
     } else {
       soundService.setMuted(false);
-      soundService.startGlobalBGM(localConfig.bgmAudioUrl);
+      soundService.startGlobalBGM(localConfig.bgmAudioUrl || '');
       setIsAudioPreviewPlaying(true);
     }
   };
@@ -2123,8 +2150,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </button>
                       <button
                         onClick={() => {
-                          const newLokasi = (document.getElementById(`lokasi_${ml.id}`) as HTMLInputElement)?.value || ml.lokasi;
-                          const newJadwal = (document.getElementById(`jadwal_${ml.id}`) as HTMLInputElement)?.value || ml.jadwal;
+                          const newLokasi = (document.getElementById(`lokasi_${ml.id}`) as HTMLInputElement)?.value || ml.lokasi || '';
+                          const newJadwal = (document.getElementById(`jadwal_${ml.id}`) as HTMLInputElement)?.value || ml.jadwal || '';
                           handleSaveJadwalLokasi(ml.id, newJadwal, newLokasi);
                         }}
                         className="flex items-center gap-1 px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs shadow cursor-pointer transition-all"
@@ -2207,7 +2234,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="p-3 text-center font-mono font-bold text-amber-400">{pst.nomorDada}</td>
                         <td className="p-3 font-bold text-white">{pst.nama}</td>
                         <td className="p-3 text-stone-300">{pst.asalInstansi}</td>
-                        <td className="p-3 text-stone-400">{ml?.nama || '-'}</td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(() => {
+                              const pMlIds = (pst.mataLombaIds && pst.mataLombaIds.length > 0)
+                                ? pst.mataLombaIds
+                                : (pst.mataLombaId ? [pst.mataLombaId] : []);
+                              const matchedMls = mataLombaList.filter(m => pMlIds.includes(m.id));
+                              if (matchedMls.length === 0) return <span className="text-stone-500 italic text-[11px]">- Belum ada cabang -</span>;
+                              return matchedMls.map(m => (
+                                <span
+                                  key={m.id}
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                                >
+                                  {m.kode ? `${m.kode} - ` : ''}{m.nama}
+                                </span>
+                              ));
+                            })()}
+                          </div>
+                        </td>
                         <td className="p-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
@@ -2773,7 +2818,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-white"
                       >
                         <option value="">-- Semua Peserta --</option>
-                        {pesertaList.filter(p => !printSelectedMl || p.mataLombaId === printSelectedMl).map(pst => (
+                        {pesertaList.filter(p => !printSelectedMl || p.mataLombaId === printSelectedMl || (Array.isArray(p.mataLombaIds) && p.mataLombaIds.includes(printSelectedMl))).map(pst => (
                           <option key={pst.id} value={pst.id}>
                             {pst.nomorDada} - {pst.nama}
                           </option>
@@ -3848,18 +3893,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div>
-                <label className="text-stone-300 block mb-1">Cabang Mata Lomba:</label>
-                <select
-                  value={pesertaFormData.mataLombaId}
-                  onChange={e => setPesertaFormData({ ...pesertaFormData, mataLombaId: e.target.value })}
-                  className="w-full p-2 bg-stone-950 border border-stone-700 rounded-lg text-white"
-                >
-                  {mataLombaList.map(ml => (
-                    <option key={ml.id} value={ml.id}>
-                      {ml.kode} - {ml.nama}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-stone-300 font-semibold text-xs">
+                    Cabang Mata Lomba (Bisa Pilih Lebih dari 1):
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allIds = mataLombaList.map(m => m.id);
+                        setPesertaFormData({
+                          ...pesertaFormData,
+                          mataLombaIds: allIds,
+                          mataLombaId: allIds[0] || '',
+                        });
+                      }}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                    >
+                      Pilih Semua
+                    </button>
+                    <span className="text-stone-600 text-[10px]">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPesertaFormData({
+                          ...pesertaFormData,
+                          mataLombaIds: [],
+                          mataLombaId: '',
+                        });
+                      }}
+                      className="text-[10px] text-stone-400 hover:text-stone-200 underline cursor-pointer"
+                    >
+                      Batal Semua
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-stone-950 border border-stone-700 rounded-xl">
+                  {mataLombaList.map(ml => {
+                    const isChecked = (pesertaFormData.mataLombaIds || []).includes(ml.id);
+                    return (
+                      <label
+                        key={ml.id}
+                        className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all border ${
+                          isChecked
+                            ? 'bg-amber-950/40 border-amber-500/50 text-amber-200 shadow-sm'
+                            : 'bg-stone-900/60 border-stone-800 text-stone-300 hover:bg-stone-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const cur = pesertaFormData.mataLombaIds || [];
+                              const next = e.target.checked
+                                ? [...cur, ml.id]
+                                : cur.filter(id => id !== ml.id);
+                              setPesertaFormData({
+                                ...pesertaFormData,
+                                mataLombaIds: next,
+                                mataLombaId: next[0] || '',
+                              });
+                            }}
+                            className="w-4 h-4 rounded text-amber-500 accent-amber-500 cursor-pointer"
+                          />
+                          <span className="font-semibold text-xs">{ml.nama}</span>
+                        </div>
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-stone-950 border border-stone-800 text-stone-400">
+                          {ml.kode}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {mataLombaList.length === 0 && (
+                    <div className="text-center py-3 text-stone-500 text-xs italic">
+                      Belum ada mata lomba yang dibuat.
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-1 flex items-center justify-between text-[11px]">
+                  <span className={`${(pesertaFormData.mataLombaIds?.length || 0) > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {(pesertaFormData.mataLombaIds?.length || 0) > 0
+                      ? `${pesertaFormData.mataLombaIds?.length} cabang lomba dipilih`
+                      : '⚠️ Wajib memilih minimal 1 cabang lomba'}
+                  </span>
+                  <span className="text-stone-500 text-[10px]">
+                    Centang satu atau beberapa cabang lomba
+                  </span>
+                </div>
               </div>
 
               <div>

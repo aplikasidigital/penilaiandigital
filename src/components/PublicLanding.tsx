@@ -80,7 +80,7 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
   // Sort participants by votes descending
   const currentCat = votingCategories.find(c => c.id === selectedVotingCatId) || votingCategories[0];
   const eligiblePeserta = currentCat?.mataLombaId
-    ? allPeserta.filter(p => p.mataLombaId === currentCat.mataLombaId)
+    ? allPeserta.filter(p => p.mataLombaId === currentCat.mataLombaId || (Array.isArray(p.mataLombaIds) && currentCat.mataLombaId && p.mataLombaIds.includes(currentCat.mataLombaId)))
     : allPeserta;
 
   const sortedVotedParticipants = [...eligiblePeserta].map(p => ({
@@ -662,7 +662,7 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
             </div>
 
             <div className="space-y-4">
-              {eventConfig.peraturanLomba.map((rule, idx) => (
+              {(eventConfig.peraturanLomba || []).map((rule, idx) => (
                 <div
                   key={idx}
                   className="flex items-start gap-3.5 bg-stone-900/60 p-4 rounded-xl border border-stone-800"

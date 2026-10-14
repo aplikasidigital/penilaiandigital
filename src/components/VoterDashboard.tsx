@@ -64,7 +64,7 @@ export const VoterDashboard: React.FC<VoterDashboardProps> = ({
   const currentCategory = useMemo(() => votingCategories.find(c => c.id === selectedCatId) || votingCategories[0], [votingCategories, selectedCatId]);
   const eligiblePeserta = useMemo(() => {
     return currentCategory?.mataLombaId
-      ? allPeserta.filter(p => p.mataLombaId === currentCategory.mataLombaId)
+      ? allPeserta.filter(p => p.mataLombaId === currentCategory.mataLombaId || (Array.isArray(p.mataLombaIds) && currentCategory.mataLombaId && p.mataLombaIds.includes(currentCategory.mataLombaId)))
       : allPeserta;
   }, [currentCategory, allPeserta]);
 
@@ -341,7 +341,11 @@ export const VoterDashboard: React.FC<VoterDashboardProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1">
             {filteredPeserta.map(pst => {
               const isSelected = selectedPesertaId === pst.id;
-              const ml = allMataLomba.find(m => m.id === pst.mataLombaId);
+              const pMlIds = (pst.mataLombaIds && pst.mataLombaIds.length > 0)
+                ? pst.mataLombaIds
+                : (pst.mataLombaId ? [pst.mataLombaId] : []);
+              const matchedMls = allMataLomba.filter(m => pMlIds.includes(m.id));
+              const mlDisplay = matchedMls.map(m => m.nama).join(', ') || '-';
 
               return (
                 <div
@@ -357,8 +361,8 @@ export const VoterDashboard: React.FC<VoterDashboardProps> = ({
                     <span className="text-[11px] font-mono font-bold text-amber-400 bg-stone-950 px-2 py-0.5 rounded">
                       {pst.nomorDada}
                     </span>
-                    <span className="text-[10px] text-stone-400 truncate">
-                      {ml?.nama}
+                    <span className="text-[10px] text-stone-400 truncate max-w-[130px]" title={mlDisplay}>
+                      {mlDisplay}
                     </span>
                   </div>
 
@@ -435,7 +439,7 @@ export const VoterDashboard: React.FC<VoterDashboardProps> = ({
                   <div key={vr.id} className="bg-stone-900 p-2.5 rounded-lg border border-stone-800 text-xs flex justify-between items-center">
                     <div>
                       <div className="font-bold text-white">{pst?.nama || 'Peserta'}</div>
-                      <div className="text-[10px] text-stone-400">{new Date(vr.createdAt).toLocaleString('id-ID')}</div>
+                      <div className="text-[10px] text-stone-400">{vr.createdAt ? new Date(vr.createdAt).toLocaleString('id-ID') : '-'}</div>
                     </div>
                     <div className="text-right font-mono font-bold text-amber-400">
                       +{vr.jumlahVote} Suara

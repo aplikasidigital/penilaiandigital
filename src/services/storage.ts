@@ -1298,7 +1298,9 @@ export const StorageService = {
     const ml = allMataLomba.find(m => m.id === mataLombaId);
     if (!ml) return [];
 
-    const pesertaList = this.getPeserta().filter(p => p.mataLombaId === mataLombaId);
+    const pesertaList = this.getPeserta().filter(
+      p => p.mataLombaId === mataLombaId || (Array.isArray(p.mataLombaIds) && p.mataLombaIds.includes(mataLombaId))
+    );
     const submissions = this.getSubmissions().filter(s => s.mataLombaId === mataLombaId && s.status === 'approved');
 
     const results: RankingParticipant[] = pesertaList.map(pst => {
