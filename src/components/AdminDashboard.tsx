@@ -186,6 +186,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [printMode, setPrintMode] = useState<PrintModeType>('rekapan_per_matalomba');
   const [printSelectedMl, setPrintSelectedMl] = useState<string>(mataLombaList[0]?.id || '');
   const [printSelectedPst, setPrintSelectedPst] = useState<string>('');
+  const [printSelectedJuriId, setPrintSelectedJuriId] = useState<string>('');
   const [printIncludeFilled, setPrintIncludeFilled] = useState(false);
 
   // Proof inspection modal
@@ -2759,19 +2760,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <p className="text-xs text-stone-400 mt-1">
                     Daftar peringkat kejuaraan (Juara 1-3 & Harapan 1-3) lengkap dengan waktu tie-breaker dan rata-rata skor per cabang lomba.
                   </p>
-                  <div className="mt-3">
-                    <label className="text-[11px] text-stone-300 block mb-1">Pilih Mata Lomba:</label>
-                    <select
-                      value={printSelectedMl}
-                      onChange={e => setPrintSelectedMl(e.target.value)}
-                      className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-white"
-                    >
-                      {mataLombaList.map(ml => (
-                        <option key={ml.id} value={ml.id}>
-                          {ml.kode} - {ml.nama}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">Pilih Mata Lomba:</label>
+                      <select
+                        value={printSelectedMl}
+                        onChange={e => setPrintSelectedMl(e.target.value)}
+                        className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-white"
+                      >
+                        {mataLombaList.map(ml => (
+                          <option key={ml.id} value={ml.id}>
+                            {ml.kode} - {ml.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">Pilihan Format Juri:</label>
+                      <select
+                        value={printSelectedJuriId}
+                        onChange={e => setPrintSelectedJuriId(e.target.value)}
+                        className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-amber-300 font-medium"
+                      >
+                        <option value="">Semua Juri (Laporan Gabungan & Akumulasi)</option>
+                        {usersList.filter(u => u.role === 'juri').map((juri, jIdx) => (
+                          <option key={juri.id} value={juri.id}>
+                            Juri {jIdx + 1}: {juri.name} ({juri.username})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -2782,7 +2801,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   }}
                   className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-stone-950 font-bold rounded-xl text-xs shadow cursor-pointer"
                 >
-                  Buka & Download Rekapan Per Lomba
+                  Buka & Download Rekapan (Gabungan / Juri Terpilih)
                 </button>
               </div>
 
@@ -2812,13 +2831,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="bg-stone-900 border border-stone-800 rounded-xl p-5 space-y-3 flex flex-col justify-between md:col-span-2">
                 <div>
                   <h3 className="font-bold text-sm text-amber-300">
-                    3. Blangko Lembar Penilaian Juri (Ceklis Dinamis & Halaman Terpisah)
+                    3. Blangko Lembar Penilaian Juri (Ceklis Dinamis, Pilihan Juri & Halaman Terpisah)
                   </h3>
                   <p className="text-xs text-stone-400 mt-1">
-                    Mendukung pencetakan dan download PDF dengan pemisahan 1 halaman per peserta, kolom ceklis dinamis, dan hasil stopwatch.
+                    Mendukung pencetakan dan download PDF per masing-masing juri (Juri 1, 2, dst.) atau gabungan, dengan pemisahan 1 halaman per peserta dan kolom ceklis dinamis.
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
                     <div>
                       <label className="text-[11px] text-stone-300 block mb-1">Mata Lomba:</label>
                       <select
@@ -2829,6 +2848,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {mataLombaList.map(ml => (
                           <option key={ml.id} value={ml.id}>
                             {ml.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">Pilihan Dewan Juri:</label>
+                      <select
+                        value={printSelectedJuriId}
+                        onChange={e => setPrintSelectedJuriId(e.target.value)}
+                        className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-amber-300 font-medium"
+                      >
+                        <option value="">Semua Juri (Cetak Blangko Tiap Juri)</option>
+                        {usersList.filter(u => u.role === 'juri').map((juri, jIdx) => (
+                          <option key={juri.id} value={juri.id}>
+                            Juri {jIdx + 1}: {juri.name}
                           </option>
                         ))}
                       </select>
@@ -2857,7 +2892,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         onChange={e => setPrintIncludeFilled(e.target.value === 'filled')}
                         className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-white"
                       >
-                        <option value="empty">Blangko Kosong (Untuk Isian Manual Juri)</option>
+                        <option value="empty">Blangko Kosong (Untuk Isian Manual)</option>
                         <option value="filled">Blangko Berisi Nilai Resmi Juri</option>
                       </select>
                     </div>
@@ -4497,6 +4532,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           mode={printMode}
           selectedMataLombaId={printSelectedMl}
           selectedPesertaId={printSelectedPst}
+          selectedJuriId={printSelectedJuriId}
           includeFilledScores={printIncludeFilled}
           eventConfig={localConfig}
           onClose={() => setPrintModalOpen(false)}

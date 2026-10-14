@@ -882,6 +882,7 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
           mode="blangko_per_peserta_per_lomba"
           selectedMataLombaId={selectedLombaId}
           selectedPesertaId={selectedPesertaId}
+          selectedJuriId={currentUser.id}
           includeFilledScores={true}
           eventConfig={StorageService.getEventConfig()}
           onClose={() => setIsPrintModalOpen(false)}
