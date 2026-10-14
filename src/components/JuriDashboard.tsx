@@ -287,6 +287,51 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
     }));
   };
 
+  // Toggle Single (Ceklis / Toggle Satuan PBB dengan Bobot)
+  const handleToggleSingle = (critId: string, bobot: number) => {
+    soundService.playClick();
+    setScoresMap(prev => {
+      const current = prev[critId]?.nilai || 0;
+      const isNowActive = current === 0;
+      return {
+        ...prev,
+        [critId]: {
+          nilai: isNowActive ? bobot : 0,
+          checkedIndices: isNowActive ? [1] : [],
+        },
+      };
+    });
+  };
+
+  // Stepper Kelipatan (Kelipatan 5, 10, dll.)
+  const handleStepKelipatan = (critId: string, step: number, maxScore: number, isAdd: boolean) => {
+    soundService.playClick();
+    setScoresMap(prev => {
+      const current = prev[critId]?.nilai || 0;
+      const next = isAdd ? Math.min(maxScore, current + step) : Math.max(0, current - step);
+      return {
+        ...prev,
+        [critId]: {
+          nilai: next,
+          checkedIndices: [],
+        },
+      };
+    });
+  };
+
+  // Set nilai exact (tombol preset angka kelipatan)
+  const handleSetExactScore = (critId: string, val: number, maxScore: number) => {
+    soundService.playClick();
+    const clamped = Math.max(0, Math.min(maxScore, val));
+    setScoresMap(prev => ({
+      ...prev,
+      [critId]: {
+        nilai: clamped,
+        checkedIndices: [],
+      },
+    }));
+  };
+
   // Penalty handlers
   const handleAddPelanggaran = () => {
     if (!newPelanggaranNama.trim()) return;
@@ -617,8 +662,8 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                               </div>
                             </div>
 
-                            {/* Checklist or Number input depending on type */}
-                            {crit.tipe === 'checkbox' ? (
+                            {/* Checklist or Number or Toggle or Kelipatan depending on criteria type */}
+                            {crit.tipe === 'checkbox' && (
                               <div>
                                 <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 mb-1.5 gap-2">
                                   <span>
@@ -664,18 +709,206 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                                   })}
                                 </div>
                               </div>
-                            ) : (
-                              <div className="flex items-center gap-3">
-                                <label className="text-xs text-stone-300">Input Nilai Angka (0 - {crit.nilaiMaksimal}):</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max={crit.nilaiMaksimal}
-                                  value={currentScore.nilai || ''}
-                                  onChange={e => handleNumberScoreChange(crit.id, parseInt(e.target.value) || 0, crit.nilaiMaksimal)}
-                                  className="w-24 px-3 py-1.5 bg-stone-950 border border-stone-700 rounded-lg text-white font-mono text-center text-sm focus:border-amber-500 outline-none"
-                                />
-                                <span className="text-xs text-stone-400">Poin</span>
+                            )}
+
+                            {/* Tipe Toggle / Ceklis Satuan PBB dengan Bobot */}
+                            {crit.tipe === 'toggle' && (
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 gap-2">
+                                  <span>Metode Ceklis / Toggle Satuan PBB (Gerakan Benar / Sempurna):</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetExactScore(crit.id, crit.bobotNilai || crit.nilaiMaksimal, crit.nilaiMaksimal)}
+                                      className="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[10px] font-semibold cursor-pointer"
+                                    >
+                                      ✓ Ceklis (+{crit.bobotNilai || crit.nilaiMaksimal})
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResetChecklist(crit.id)}
+                                      className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-[10px] cursor-pointer"
+                                    >
+                                      Reset (0)
+                                    </button>
+                                  </div>
+                                </div>
+
+                                <div
+                                  onClick={() => handleToggleSingle(crit.id, crit.bobotNilai || crit.nilaiMaksimal)}
+                                  className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                                    currentScore.nilai > 0
+                                      ? 'bg-emerald-950/40 border-emerald-500/70 text-emerald-200 ring-1 ring-emerald-500/30'
+                                      : 'bg-stone-950 border-stone-800 text-stone-400 hover:border-stone-700'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div
+                                      className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-sm border transition-all ${
+                                        currentScore.nilai > 0
+                                          ? 'bg-emerald-500 border-emerald-400 text-stone-950 shadow'
+                                          : 'bg-stone-900 border-stone-700 text-stone-500'
+                                      }`}
+                                    >
+                                      {currentScore.nilai > 0 ? '✓' : ''}
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-xs text-white">
+                                        {currentScore.nilai > 0
+                                          ? `✓ Gerakan Sempurna / Terpenuhi (+${crit.bobotNilai || crit.nilaiMaksimal} Poin)`
+                                          : '○ Belum Dicentang / Tidak Dilakukan (0 Poin)'}
+                                      </div>
+                                      <div className="text-[10px] text-stone-400">
+                                        Klik kotak atau baris ini untuk mengubah status ceklis
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="shrink-0 font-mono text-sm font-bold">
+                                    {currentScore.nilai > 0 ? (
+                                      <span className="text-emerald-400">+{currentScore.nilai}</span>
+                                    ) : (
+                                      <span className="text-stone-600">0</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Tipe Angka Kelipatan Fleksibel */}
+                            {crit.tipe === 'kelipatan' && (
+                              <div className="space-y-2.5">
+                                <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 gap-2">
+                                  <span>
+                                    Pilih Kelipatan <strong className="text-amber-300 font-mono">+{crit.kelipatan || 5} Poin</strong> (Rentang 0 - {crit.nilaiMaksimal}):
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetExactScore(crit.id, 0, crit.nilaiMaksimal)}
+                                      className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-[10px] cursor-pointer"
+                                    >
+                                      0 (Reset)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetExactScore(crit.id, crit.nilaiMaksimal, crit.nilaiMaksimal)}
+                                      className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-semibold cursor-pointer"
+                                    >
+                                      Max ({crit.nilaiMaksimal})
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Stepper & Direct Input */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="flex items-center bg-stone-950 border border-stone-800 rounded-xl p-1 gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStepKelipatan(crit.id, crit.kelipatan || 5, crit.nilaiMaksimal, false)}
+                                      className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-lg text-xs font-mono font-bold cursor-pointer"
+                                      title={`Kurang ${crit.kelipatan || 5} poin`}
+                                    >
+                                      -{crit.kelipatan || 5}
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={crit.nilaiMaksimal}
+                                      step={crit.kelipatan || 5}
+                                      value={currentScore.nilai || 0}
+                                      onChange={e => handleNumberScoreChange(crit.id, parseInt(e.target.value) || 0, crit.nilaiMaksimal)}
+                                      className="w-20 px-2 py-1.5 bg-stone-900 border border-stone-700 rounded-lg text-white font-mono text-center text-sm font-bold focus:border-amber-500 outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStepKelipatan(crit.id, crit.kelipatan || 5, crit.nilaiMaksimal, true)}
+                                      className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-lg text-xs font-mono font-bold cursor-pointer"
+                                      title={`Tambah ${crit.kelipatan || 5} poin`}
+                                    >
+                                      +{crit.kelipatan || 5}
+                                    </button>
+                                  </div>
+                                  <span className="text-xs text-stone-400">Poin</span>
+                                </div>
+
+                                {/* Multiples Preset Pill Grid */}
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {Array.from(
+                                    { length: Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) + 1 },
+                                    (_, i) => i * (crit.kelipatan || 5)
+                                  ).map(val => {
+                                    const isSelected = currentScore.nilai === val;
+                                    return (
+                                      <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() => handleSetExactScore(crit.id, val, crit.nilaiMaksimal)}
+                                        className={`px-2.5 py-1 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer border ${
+                                          isSelected
+                                            ? 'bg-amber-500 border-amber-400 text-stone-950 shadow ring-2 ring-amber-300'
+                                            : 'bg-stone-950 border-stone-800 text-stone-300 hover:bg-stone-800 hover:text-white'
+                                        }`}
+                                      >
+                                        {val}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Tipe Input Angka Bebas */}
+                            {crit.tipe === 'number' && (
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 gap-2">
+                                  <span>Input Nilai Angka Bebas (Rentang 0 - {crit.nilaiMaksimal}):</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetExactScore(crit.id, 0, crit.nilaiMaksimal)}
+                                      className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-[10px] cursor-pointer"
+                                    >
+                                      Reset (0)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetExactScore(crit.id, crit.nilaiMaksimal, crit.nilaiMaksimal)}
+                                      className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-semibold cursor-pointer"
+                                    >
+                                      Max ({crit.nilaiMaksimal})
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center bg-stone-950 border border-stone-800 rounded-xl p-1 gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStepKelipatan(crit.id, 5, crit.nilaiMaksimal, false)}
+                                      className="px-2 py-1 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded text-xs font-mono"
+                                      title="Kurang 5 poin"
+                                    >
+                                      -5
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={crit.nilaiMaksimal}
+                                      value={currentScore.nilai || ''}
+                                      onChange={e => handleNumberScoreChange(crit.id, parseInt(e.target.value) || 0, crit.nilaiMaksimal)}
+                                      className="w-24 px-3 py-1.5 bg-stone-900 border border-stone-700 rounded-lg text-white font-mono text-center text-sm font-bold focus:border-amber-500 outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleStepKelipatan(crit.id, 5, crit.nilaiMaksimal, true)}
+                                      className="px-2 py-1 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded text-xs font-mono"
+                                      title="Tambah 5 poin"
+                                    >
+                                      +5
+                                    </button>
+                                  </div>
+                                  <span className="text-xs text-stone-400">Poin</span>
+                                </div>
                               </div>
                             )}
                           </div>

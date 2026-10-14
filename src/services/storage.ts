@@ -274,9 +274,79 @@ const DEFAULT_MATA_LOMBA: MataLomba[] = [
       },
     ],
   },
+  {
+    id: 'ml_pbb',
+    kode: 'PBB-01',
+    nama: 'Lomba Ketangkasan Baris-Berbaris (LKBB / PBB)',
+    kategori: 'PBB & Variasi Formasi',
+    deskripsi: 'Kompetisi Peraturan Baris Berbaris (PBB) bertaraf nasional mencakup gerakan dasar di tempat, langkah tegap, variasi & formasi, serta komando danton.',
+    lokasi: 'Lapangan Utama & Parade Ground Merdeka',
+    jadwal: 'Minggu, 25 Okt 2026 - 08:00 WIB',
+    durasiMaksimalMenit: 10,
+    durasiTargetDetik: 480, // 8 menit
+    assignedJuriIds: ['usr_juri1', 'usr_juri2', 'usr_juri3', 'usr_juri4'],
+    icon: 'Shield',
+    kriteriaList: [
+      {
+        id: 'crit_pbb_1',
+        mataLombaId: 'ml_pbb',
+        nama: 'Gerakan Dasar PBB di Tempat (Sikap Sempurna, Hadap, Lencang)',
+        deskripsi: 'Ketegasan sikap sempurna, hadap kanan/kiri, balik kanan, lencang depan/kanan, dan kerapihan barisan.',
+        tipe: 'toggle',
+        nilaiMaksimal: 25,
+        bobotNilai: 25,
+      },
+      {
+        id: 'crit_pbb_2',
+        mataLombaId: 'ml_pbb',
+        nama: 'Gerakan Berjalan & Langkah Tegap (Kelipatan 5)',
+        deskripsi: 'Keseragaman derap langkah, tempo ketukan kaki, ayunan tangan 90 derajat, dan kedisiplinan barisan saat berjalan.',
+        tipe: 'kelipatan',
+        nilaiMaksimal: 50,
+        kelipatan: 5,
+      },
+      {
+        id: 'crit_pbb_3',
+        mataLombaId: 'ml_pbb',
+        nama: 'Kekompakan Variasi & Formasi Pasukan (Kelipatan 10)',
+        deskripsi: 'Tingkat kesulitan transisi gerak, kerapian pola lantai, estetika formasi, dan harmoni koreografi.',
+        tipe: 'kelipatan',
+        nilaiMaksimal: 100,
+        kelipatan: 10,
+      },
+      {
+        id: 'crit_pbb_4',
+        mataLombaId: 'ml_pbb',
+        nama: 'Artikulasi Aba-aba & Kepemimpinan Danton (Angka Bebas)',
+        deskripsi: 'Kekuatan resonansi vokal danton, ketegasan nada perintah, penguasaan lapangan, dan karisma kepemimpinan.',
+        tipe: 'number',
+        nilaiMaksimal: 30,
+      },
+    ],
+  },
 ];
 
 const DEFAULT_PESERTA: Peserta[] = [
+  {
+    id: 'pst_pbb_01',
+    nomorUrut: 1,
+    nomorDada: 'PBB-01',
+    nama: 'Peleton Satria Wira Pratama',
+    asalInstansi: 'SMA Negeri 1 Wira Tama Bandung',
+    mataLombaId: 'ml_pbb',
+    kategori: 'Tingkat Nasional',
+    kontak: '081288990011',
+  },
+  {
+    id: 'pst_pbb_02',
+    nomorUrut: 2,
+    nomorDada: 'PBB-02',
+    nama: 'Peleton Garuda Sakti Nusantara',
+    asalInstansi: 'SMK Penerbangan Angkasa Bhakti',
+    mataLombaId: 'ml_pbb',
+    kategori: 'Tingkat Nasional',
+    kontak: '081299887766',
+  },
   {
     id: 'pst_01',
     nomorUrut: 1,
@@ -975,7 +1045,17 @@ export const StorageService = {
       return DEFAULT_MATA_LOMBA;
     }
     try {
-      return JSON.parse(raw);
+      const list: MataLomba[] = JSON.parse(raw);
+      // Sinkronisasi otomatis: pastikan cabang Lomba PBB tersedia untuk pengujian
+      const hasPbb = list.some(m => m.id === 'ml_pbb' || m.nama.toLowerCase().includes('baris') || m.nama.toLowerCase().includes('pbb'));
+      if (!hasPbb) {
+        const pbbDefault = DEFAULT_MATA_LOMBA.find(m => m.id === 'ml_pbb');
+        if (pbbDefault) {
+          list.push(pbbDefault);
+          localStorage.setItem(STORAGE_KEYS.MATA_LOMBA, JSON.stringify(list));
+        }
+      }
+      return list;
     } catch {
       return DEFAULT_MATA_LOMBA;
     }
@@ -1000,7 +1080,16 @@ export const StorageService = {
       return DEFAULT_PESERTA;
     }
     try {
-      return JSON.parse(raw);
+      const list: Peserta[] = JSON.parse(raw);
+      const hasPbbPeserta = list.some(p => p.mataLombaId === 'ml_pbb' || p.id === 'pst_pbb_01');
+      if (!hasPbbPeserta) {
+        const pbbPeserta = DEFAULT_PESERTA.filter(p => p.mataLombaId === 'ml_pbb');
+        if (pbbPeserta.length > 0) {
+          list.push(...pbbPeserta);
+          localStorage.setItem(STORAGE_KEYS.PESERTA, JSON.stringify(list));
+        }
+      }
+      return list;
     } catch {
       return DEFAULT_PESERTA;
     }

@@ -801,7 +801,10 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                           </div>
                                         )}
                                         <div className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
-                                          {crit.tipe === 'checkbox' ? 'Format: Ceklis Dinamis' : 'Format: Input Angka'}
+                                          {crit.tipe === 'checkbox' && 'Format: Ceklis Dinamis'}
+                                          {crit.tipe === 'toggle' && 'Format: Ceklis / Toggle Satuan PBB'}
+                                          {crit.tipe === 'kelipatan' && `Format: Angka Kelipatan (${crit.kelipatan || 5} Poin)`}
+                                          {crit.tipe === 'number' && 'Format: Input Angka Bebas'}
                                         </div>
                                       </td>
 
@@ -831,6 +834,56 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                             </div>
                                             <div className="text-[8px] text-stone-500 italic mt-0.5 break-words whitespace-normal [word-break:break-word]">
                                               *Centang kotak poin sesuai capaian (1 s/d {crit.nilaiMaksimal})
+                                            </div>
+                                          </div>
+                                        ) : crit.tipe === 'toggle' ? (
+                                          <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                              <div
+                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[9px] font-mono border ${
+                                                  includeFilledScores && itemNilai && itemNilai.nilai > 0
+                                                    ? 'bg-emerald-100 border-emerald-600 text-emerald-950 font-bold'
+                                                    : 'bg-white border-stone-300 text-stone-700'
+                                                }`}
+                                              >
+                                                <span className="text-[10px] font-bold">
+                                                  {includeFilledScores && itemNilai && itemNilai.nilai > 0 ? '☑' : '☐'}
+                                                </span>
+                                                <span>
+                                                  Gerakan Sempurna / Terpenuhi (+{crit.bobotNilai || crit.nilaiMaksimal} Poin)
+                                                </span>
+                                              </div>
+                                            </div>
+                                            <div className="text-[8px] text-stone-500 italic mt-0.5">
+                                              *Metode ceklis/toggle: centang bila kriteria PBB terpenuhi penuh (0 jika tidak)
+                                            </div>
+                                          </div>
+                                        ) : crit.tipe === 'kelipatan' ? (
+                                          <div className="space-y-1">
+                                            <div className="text-[8px] text-stone-500 italic mb-1">
+                                              *Pilihan nilai kelipatan {crit.kelipatan || 5} poin (0 s/d {crit.nilaiMaksimal}):
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1">
+                                              {Array.from(
+                                                { length: Math.min(15, Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) + 1) },
+                                                (_, i) => {
+                                                  const stepVal = i * (crit.kelipatan || 5);
+                                                  const isSelected = includeFilledScores && itemNilai ? itemNilai.nilai === stepVal : false;
+                                                  return (
+                                                    <div
+                                                      key={i}
+                                                      className={`inline-flex items-center justify-center min-w-[24px] h-5 px-1.5 rounded text-[8px] font-mono border ${
+                                                        isSelected
+                                                          ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
+                                                          : 'bg-white border-stone-300 text-stone-600'
+                                                      }`}
+                                                    >
+                                                      <span className="mr-0.5 text-[7px]">{isSelected ? '●' : '○'}</span>
+                                                      <span>{stepVal}</span>
+                                                    </div>
+                                                  );
+                                                }
+                                              )}
                                             </div>
                                           </div>
                                         ) : (

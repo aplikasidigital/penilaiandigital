@@ -235,13 +235,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     id?: string;
     nama: string;
     deskripsi: string;
-    tipe: 'checkbox' | 'number';
+    tipe: 'checkbox' | 'number' | 'toggle' | 'kelipatan';
     nilaiMaksimal: number;
+    kelipatan?: number;
+    bobotNilai?: number;
   }>({
     nama: '',
     deskripsi: '',
     tipe: 'checkbox',
     nilaiMaksimal: 10,
+    kelipatan: 5,
+    bobotNilai: 10,
   });
 
   // 4. Peserta Modal (Create & Edit)
@@ -560,6 +564,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       deskripsi: '',
       tipe: 'checkbox',
       nilaiMaksimal: 10,
+      kelipatan: 5,
+      bobotNilai: 10,
     });
     setKriteriaModalOpen(true);
   };
@@ -572,8 +578,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       id: crit.id,
       nama: crit.nama,
       deskripsi: crit.deskripsi,
-      tipe: crit.tipe,
-      nilaiMaksimal: crit.nilaiMaksimal,
+      tipe: crit.tipe || 'checkbox',
+      nilaiMaksimal: crit.nilaiMaksimal || 10,
+      kelipatan: crit.kelipatan || 5,
+      bobotNilai: crit.bobotNilai || crit.nilaiMaksimal || 10,
     });
     setKriteriaModalOpen(true);
   };
@@ -590,6 +598,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const targetMl = allMl.find(m => m.id === targetMlForKriteria);
     if (!targetMl) return;
 
+    const maxVal = kriteriaFormData.tipe === 'toggle'
+      ? (Number(kriteriaFormData.bobotNilai) || 10)
+      : (Number(kriteriaFormData.nilaiMaksimal) || 10);
+    const kelipatanVal = kriteriaFormData.tipe === 'kelipatan'
+      ? Math.max(1, Number(kriteriaFormData.kelipatan) || 5)
+      : undefined;
+    const bobotVal = kriteriaFormData.tipe === 'toggle'
+      ? (Number(kriteriaFormData.bobotNilai) || maxVal)
+      : undefined;
+
     if (editingKriteria) {
       targetMl.kriteriaList = targetMl.kriteriaList.map(c =>
         c.id === editingKriteria.id
@@ -598,7 +616,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               nama: kriteriaFormData.nama.trim(),
               deskripsi: kriteriaFormData.deskripsi.trim(),
               tipe: kriteriaFormData.tipe,
-              nilaiMaksimal: Number(kriteriaFormData.nilaiMaksimal) || 10,
+              nilaiMaksimal: maxVal,
+              kelipatan: kelipatanVal,
+              bobotNilai: bobotVal,
             }
           : c
       );
@@ -610,7 +630,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         nama: kriteriaFormData.nama.trim(),
         deskripsi: kriteriaFormData.deskripsi.trim(),
         tipe: kriteriaFormData.tipe,
-        nilaiMaksimal: Number(kriteriaFormData.nilaiMaksimal) || 10,
+        nilaiMaksimal: maxVal,
+        kelipatan: kelipatanVal,
+        bobotNilai: bobotVal,
       };
       targetMl.kriteriaList.push(newCrit);
       showAlert('success', `Kriteria "${newCrit.nama}" berhasil ditambahkan!`);
@@ -2042,7 +2064,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-bold text-stone-200 break-words [word-break:break-word]">{cIdx + 1}. {crit.nama}</span>
                                 <span className="text-amber-400 font-mono text-[11px] bg-stone-900 px-2 py-0.5 rounded border border-stone-800 break-words">
-                                  Tipe: {crit.tipe === 'checkbox' ? 'Kotak Ceklis' : 'Input Angka Langsung'} • Nilai Maks: {crit.nilaiMaksimal}
+                                  {crit.tipe === 'checkbox' && `Kotak Ceklis Dinamis • Max: ${crit.nilaiMaksimal}`}
+                                  {crit.tipe === 'toggle' && `Ceklis / Toggle Satuan PBB • Bobot: ${crit.bobotNilai || crit.nilaiMaksimal} Poin`}
+                                  {crit.tipe === 'kelipatan' && `Angka Kelipatan ${crit.kelipatan || 5} Poin • Max: ${crit.nilaiMaksimal}`}
+                                  {crit.tipe === 'number' && `Input Angka Bebas • Max: ${crit.nilaiMaksimal}`}
                                 </span>
                               </div>
                               {crit.deskripsi && (
@@ -2050,10 +2075,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   {crit.deskripsi}
                                 </div>
                               )}
+
+                              {/* Visual Previews depending on criteria type */}
                               {crit.tipe === 'checkbox' && (
                                 <div className="mt-2 pt-1.5 border-t border-stone-900">
                                   <span className="text-[10px] text-stone-400 block mb-1">
-                                    Daftar Lengkap Ceklis ({crit.nilaiMaksimal} Kotak):
+                                    Daftar Kotak Ceklis ({crit.nilaiMaksimal} Kotak):
                                   </span>
                                   <div className="flex flex-wrap gap-1 items-center max-w-full break-words [overflow-wrap:anywhere]">
                                     {Array.from({ length: crit.nilaiMaksimal }, (_, i) => i + 1).map((boxNum) => (
@@ -2065,6 +2092,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <span>{boxNum}</span>
                                       </span>
                                     ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {crit.tipe === 'toggle' && (
+                                <div className="mt-2 pt-1.5 border-t border-stone-900 flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-950/60 border border-emerald-800 text-emerald-300 rounded text-[10px] font-mono font-medium">
+                                    <span>☑</span>
+                                    <span>Ceklis/Toggle Aktif: +{crit.bobotNilai || crit.nilaiMaksimal} Poin</span>
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-stone-900 border border-stone-800 text-stone-400 rounded text-[10px] font-mono">
+                                    <span>☐</span>
+                                    <span>Non-aktif: 0 Poin</span>
+                                  </span>
+                                </div>
+                              )}
+
+                              {crit.tipe === 'kelipatan' && (
+                                <div className="mt-2 pt-1.5 border-t border-stone-900">
+                                  <span className="text-[10px] text-stone-400 block mb-1">
+                                    Preset Tombol Kelipatan {crit.kelipatan || 5} Poin:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1 items-center max-w-full break-words">
+                                    {Array.from({ length: Math.min(10, Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) + 1) }, (_, i) => {
+                                      const val = i * (crit.kelipatan || 5);
+                                      return (
+                                        <span
+                                          key={val}
+                                          className="px-2 py-0.5 bg-amber-950/40 border border-amber-800/60 rounded text-[10px] font-mono text-amber-300 font-bold"
+                                        >
+                                          {val}
+                                        </span>
+                                      );
+                                    })}
+                                    {Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) > 9 && (
+                                      <span className="text-[10px] text-stone-500 font-mono">... s/d {crit.nilaiMaksimal}</span>
+                                    )}
                                   </div>
                                 </div>
                               )}
@@ -3825,50 +3889,221 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               <div>
-                <label className="text-stone-300 block mb-1 font-semibold">Tipe Penilaian Juri:</label>
+                <label className="text-stone-300 block mb-1.5 font-semibold">
+                  Metode & Tipe Penilaian Juri:
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setKriteriaFormData({ ...kriteriaFormData, tipe: 'checkbox' })}
-                    className={`p-2.5 rounded-lg border text-center font-bold cursor-pointer transition-all ${
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                       kriteriaFormData.tipe === 'checkbox'
-                        ? 'bg-amber-600 text-white border-amber-500 shadow'
+                        ? 'bg-amber-600/30 text-amber-200 border-amber-500 ring-1 ring-amber-500 shadow'
                         : 'bg-stone-950 text-stone-400 border-stone-800 hover:text-stone-200'
                     }`}
                   >
-                    Kotak Ceklis (Centang)
+                    <div className="font-bold text-xs flex items-center gap-1.5">
+                      <span>☑</span> Kotak Ceklis Dinamis
+                    </div>
+                    <div className="text-[10px] text-stone-400 mt-0.5">
+                      Tingkat nilai berurutan (1 s/d N)
+                    </div>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setKriteriaFormData({ ...kriteriaFormData, tipe: 'toggle' })}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      kriteriaFormData.tipe === 'toggle'
+                        ? 'bg-amber-600/30 text-amber-200 border-amber-500 ring-1 ring-amber-500 shadow'
+                        : 'bg-stone-950 text-stone-400 border-stone-800 hover:text-stone-200'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center gap-1.5">
+                      <span>🔘</span> Ceklis / Toggle Satuan (PBB)
+                    </div>
+                    <div className="text-[10px] text-stone-400 mt-0.5">
+                      Centang Ya/Tidak dengan Bobot Poin
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setKriteriaFormData({ ...kriteriaFormData, tipe: 'kelipatan' })}
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                      kriteriaFormData.tipe === 'kelipatan'
+                        ? 'bg-amber-600/30 text-amber-200 border-amber-500 ring-1 ring-amber-500 shadow'
+                        : 'bg-stone-950 text-stone-400 border-stone-800 hover:text-stone-200'
+                    }`}
+                  >
+                    <div className="font-bold text-xs flex items-center gap-1.5">
+                      <span>⚡</span> Angka Kelipatan (Step)
+                    </div>
+                    <div className="text-[10px] text-stone-400 mt-0.5">
+                      Kelipatan 5, 10, atau custom
+                    </div>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setKriteriaFormData({ ...kriteriaFormData, tipe: 'number' })}
-                    className={`p-2.5 rounded-lg border text-center font-bold cursor-pointer transition-all ${
+                    className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
                       kriteriaFormData.tipe === 'number'
-                        ? 'bg-amber-600 text-white border-amber-500 shadow'
+                        ? 'bg-amber-600/30 text-amber-200 border-amber-500 ring-1 ring-amber-500 shadow'
                         : 'bg-stone-950 text-stone-400 border-stone-800 hover:text-stone-200'
                     }`}
                   >
-                    Input Angka Langsung
+                    <div className="font-bold text-xs flex items-center gap-1.5">
+                      <span>🔢</span> Input Angka Bebas
+                    </div>
+                    <div className="text-[10px] text-stone-400 mt-0.5">
+                      Ketik nilai bebas (0 s/d Max)
+                    </div>
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label className="text-stone-300 block mb-1">
-                  Nilai Maksimal ({kriteriaFormData.tipe === 'checkbox' ? 'Jumlah Kotak Ceklis Otomatis' : 'Skor Tertinggi'}):
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  required
-                  value={kriteriaFormData.nilaiMaksimal}
-                  onChange={e => setKriteriaFormData({ ...kriteriaFormData, nilaiMaksimal: parseInt(e.target.value) || 10 })}
-                  className="w-full p-2 bg-stone-950 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold"
-                />
-                <span className="text-[10px] text-stone-400 mt-1 block">
-                  *Untuk tipe ceklis, jumlah kolom centang pada form penilaian juri akan otomatis berjumlah sesuai angka ini.
-                </span>
-              </div>
+              {/* Pengaturan Khusus: Tipe Kelipatan */}
+              {kriteriaFormData.tipe === 'kelipatan' && (
+                <div className="bg-stone-950 p-3 rounded-xl border border-amber-500/30 space-y-2.5">
+                  <div>
+                    <label className="text-stone-300 block mb-1 font-semibold">
+                      Besaran Kelipatan Nilai (Step Poin):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        required
+                        value={kriteriaFormData.kelipatan || 5}
+                        onChange={e => setKriteriaFormData({ ...kriteriaFormData, kelipatan: Math.max(1, parseInt(e.target.value) || 5) })}
+                        className="w-28 p-2 bg-stone-900 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold text-center"
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {[2, 5, 10, 20, 25].map(step => (
+                          <button
+                            key={step}
+                            type="button"
+                            onClick={() => setKriteriaFormData({ ...kriteriaFormData, kelipatan: step })}
+                            className={`px-2 py-1 rounded text-[10px] font-mono cursor-pointer border ${
+                              (kriteriaFormData.kelipatan || 5) === step
+                                ? 'bg-amber-500 text-stone-950 font-bold border-amber-400'
+                                : 'bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-700'
+                            }`}
+                          >
+                            +{step}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-stone-300 block mb-1">
+                      Nilai Maksimal (Skor Tertinggi Kelipatan):
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="500"
+                      required
+                      value={kriteriaFormData.nilaiMaksimal}
+                      onChange={e => setKriteriaFormData({ ...kriteriaFormData, nilaiMaksimal: parseInt(e.target.value) || 50 })}
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold"
+                    />
+                    <span className="text-[10px] text-stone-400 mt-1 block">
+                      *Juri akan disediakan tombol angka kelipatan cepat (misal: 0, {kriteriaFormData.kelipatan || 5}, {(kriteriaFormData.kelipatan || 5) * 2}... s/d {kriteriaFormData.nilaiMaksimal}) serta stepper tombol tambah/kurang.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Pengaturan Khusus: Tipe Toggle / Ceklis Satuan PBB */}
+              {kriteriaFormData.tipe === 'toggle' && (
+                <div className="bg-stone-950 p-3 rounded-xl border border-emerald-500/30 space-y-2.5">
+                  <div>
+                    <label className="text-stone-300 block mb-1 font-semibold">
+                      Bobot Nilai Centang / Selesai (Poin):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="200"
+                        required
+                        value={kriteriaFormData.bobotNilai || kriteriaFormData.nilaiMaksimal || 20}
+                        onChange={e => {
+                          const val = parseInt(e.target.value) || 10;
+                          setKriteriaFormData({ ...kriteriaFormData, bobotNilai: val, nilaiMaksimal: val });
+                        }}
+                        className="w-28 p-2 bg-stone-900 border border-stone-700 rounded-lg text-emerald-300 font-mono font-bold text-center"
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {[10, 15, 20, 25, 30, 50].map(pt => (
+                          <button
+                            key={pt}
+                            type="button"
+                            onClick={() => setKriteriaFormData({ ...kriteriaFormData, bobotNilai: pt, nilaiMaksimal: pt })}
+                            className={`px-2 py-1 rounded text-[10px] font-mono cursor-pointer border ${
+                              (kriteriaFormData.bobotNilai || kriteriaFormData.nilaiMaksimal) === pt
+                                ? 'bg-emerald-500 text-stone-950 font-bold border-emerald-400'
+                                : 'bg-stone-800 text-stone-300 border-stone-700 hover:bg-stone-700'
+                            }`}
+                          >
+                            {pt} Poin
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-stone-400 mt-1.5 block">
+                      *Cocok untuk penilaian item PBB. Juri cukup 1x centang/toggle jika gerakan dilakukan sempurna, sistem otomatis memberikan nilai bobot ini (0 jika tidak dicentang).
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Pengaturan Khusus: Tipe Ceklis Dinamis (1 s/d N) */}
+              {kriteriaFormData.tipe === 'checkbox' && (
+                <div>
+                  <label className="text-stone-300 block mb-1">
+                    Nilai Maksimal (Jumlah Kotak Ceklis Otomatis):
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    required
+                    value={kriteriaFormData.nilaiMaksimal}
+                    onChange={e => setKriteriaFormData({ ...kriteriaFormData, nilaiMaksimal: parseInt(e.target.value) || 10 })}
+                    className="w-full p-2 bg-stone-950 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-1 block">
+                    *Jumlah kotak centang pada form penilaian juri akan otomatis berjejer 1 s/d angka ini.
+                  </span>
+                </div>
+              )}
+
+              {/* Pengaturan Khusus: Tipe Input Angka Bebas */}
+              {kriteriaFormData.tipe === 'number' && (
+                <div>
+                  <label className="text-stone-300 block mb-1">
+                    Nilai Maksimal (Skor Tertinggi Bebas):
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    required
+                    value={kriteriaFormData.nilaiMaksimal}
+                    onChange={e => setKriteriaFormData({ ...kriteriaFormData, nilaiMaksimal: parseInt(e.target.value) || 10 })}
+                    className="w-full p-2 bg-stone-950 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-1 block">
+                    *Juri bebas mengetik angka nilai antara 0 sampai skor maksimal ini.
+                  </span>
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-2 border-t border-stone-800">
                 <button

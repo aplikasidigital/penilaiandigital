@@ -40,13 +40,18 @@ export interface EventConfig {
   updatedAt?: string;
 }
 
+export type KriteriaTipe = 'checkbox' | 'number' | 'toggle' | 'kelipatan';
+
 export interface KriteriaPenilaian {
   id: string;
   mataLombaId: string;
   nama: string;
   deskripsi: string;
-  tipe: 'checkbox' | 'number';
+  tipe: 'checkbox' | 'number' | 'toggle' | 'kelipatan';
   nilaiMaksimal: number;
+  kelipatan?: number; // Nilai kelipatan (misal 5, 10, 20). Digunakan saat tipe === 'kelipatan'
+  bobotNilai?: number; // Nilai poin jika toggle/ceklis aktif (default = nilaiMaksimal)
+  kategoriGerakan?: string; // Kategori opsional untuk PBB (di tempat, berjalan, formasi, dsb)
 }
 
 export interface MataLomba {
