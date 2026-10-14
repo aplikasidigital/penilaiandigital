@@ -5,3 +5,75 @@
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   }
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+
+  html, body {
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    overflow: visible !important;
+  }
+
+  /* Sembunyikan elemen non-cetak */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Tampilkan hanya kontainer kertas cetak dokumen */
+  #printable-paper,
+  #printable-paper * {
+    visibility: visible;
+  }
+
+  #printable-paper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+  }
+
+  /* Aturan pencegahan pemotongan di tengah baris/halaman (fit-to-page & anti-cut) */
+  .break-inside-avoid,
+  .print-break-inside-avoid,
+  tr,
+  td,
+  th,
+  .peserta-blangko-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-break-after-page {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    page-break-inside: auto;
+  }
+
+  /* Pastikan border dan warna latar tabel tercetak jelas */
+  table, th, td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

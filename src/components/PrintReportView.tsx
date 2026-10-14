@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { EventConfig, MataLomba, Peserta, NilaiSubmission, RankingParticipant } from '../types';
 import { StorageService } from '../services/storage';
 import { soundService } from '../services/sound';
-import { Printer, Download, X, Award, ShieldCheck, Clock } from 'lucide-react';
+import { Printer, Download, X, Award, ShieldCheck, Clock, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 
 export type PrintModeType =
   | 'rekapan_per_matalomba'
@@ -32,6 +32,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   onClose,
 }) => {
   const printContentRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const allMataLomba = StorageService.getMataLomba();
   const allPeserta = StorageService.getPeserta();
@@ -52,7 +54,10 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
   const handleDownloadPdf = async () => {
     soundService.playClick();
-    if (!printContentRef.current) return;
+    if (!printContentRef.current || isExporting) return;
+
+    setIsExporting(true);
+    setExportError(null);
 
     try {
       const element = printContentRef.current;
@@ -61,18 +66,41 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
+        windowWidth: 1200, // Memastikan layout konsisten dalam proporsi standar dokumen A4 di semua perangkat (termasuk mobile)
       });
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfPageHeight = pdf.internal.pageSize.getHeight();
+      const totalPdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      if (totalPdfHeight <= pdfPageHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, totalPdfHeight);
+      } else {
+        // Multi-page slicing for longer documents
+        let heightLeft = totalPdfHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+        heightLeft -= pdfPageHeight;
+
+        while (heightLeft > 0) {
+          position -= pdfPageHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+          heightLeft -= pdfPageHeight;
+        }
+      }
+
       pdf.save(`Laporan_Resmi_${mode}_${Date.now()}.pdf`);
       soundService.playSuccessFanfare();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to export PDF', err);
+      setExportError(err?.message || 'Gagal mengekspor dokumen ke PDF');
+      soundService.playError();
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -87,9 +115,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       <div className="bg-stone-900 border border-stone-800 rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto">
         
         {/* Top Control Bar (Hidden when printing) */}
-        <div className="px-6 py-4 border-b border-stone-800 flex items-center justify-between bg-stone-950 print:hidden">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-stone-800 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 bg-stone-950 print:hidden">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
               <Printer className="w-5 h-5" />
             </div>
             <div>
@@ -102,17 +130,37 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
+            {exportError && (
+              <span className="text-xs text-rose-400 mr-2 max-w-xs truncate" title={exportError}>
+                {exportError}
+              </span>
+            )}
             <button
               onClick={handleDownloadPdf}
-              className="px-3.5 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+              disabled={isExporting}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
+                isExporting
+                  ? 'bg-stone-800 text-stone-400 cursor-not-allowed opacity-80'
+                  : 'bg-stone-800 hover:bg-stone-700 text-stone-200'
+              }`}
             >
-              <Download className="w-3.5 h-3.5 text-amber-400" />
-              <span>Simpan PDF</span>
+              {isExporting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                  <span>Membuat PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Simpan PDF</span>
+                </>
+              )}
             </button>
             <button
               onClick={handleNativePrint}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-md"
+              disabled={isExporting}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-md disabled:opacity-50"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Cetak Sekarang</span>
@@ -122,7 +170,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                 soundService.playClick();
                 onClose();
               }}
-              className="p-2 text-stone-400 hover:text-stone-100 hover:bg-stone-800 rounded-xl transition-colors cursor-pointer ml-2"
+              className="p-2 text-stone-400 hover:text-stone-100 hover:bg-stone-800 rounded-xl transition-colors cursor-pointer ml-1 sm:ml-2"
+              title="Tutup Pratinjau"
             >
               <X className="w-5 h-5" />
             </button>
@@ -130,10 +179,11 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
         </div>
 
         {/* Printable Paper Document Container */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-stone-950 flex justify-center">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-6 md:p-8 bg-stone-950 flex justify-center items-start">
           <div
+            id="printable-paper"
             ref={printContentRef}
-            className="w-full max-w-[210mm] min-h-[297mm] bg-white text-stone-900 p-8 sm:p-12 shadow-2xl rounded-sm print:p-0 print:shadow-none print:m-0 text-xs leading-normal"
+            className="w-full max-w-[210mm] min-h-[297mm] bg-white text-stone-900 p-6 sm:p-10 md:p-12 shadow-2xl rounded-sm print:p-0 print:shadow-none print:m-0 text-xs leading-normal"
           >
             {/* KOP Surat & Header Acara */}
             <div className="border-b-2 border-stone-900 pb-4 mb-6">
@@ -233,10 +283,10 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                               <td className="border border-stone-400 p-1.5 text-center font-mono">
                                 {r.peserta.nomorDada}
                               </td>
-                              <td className="border border-stone-400 p-1.5 font-semibold">
+                              <td className="border border-stone-400 p-1.5 font-semibold break-words whitespace-normal">
                                 {r.peserta.nama}
                               </td>
-                              <td className="border border-stone-400 p-1.5 text-stone-700">
+                              <td className="border border-stone-400 p-1.5 text-stone-700 break-words whitespace-normal">
                                 {r.peserta.asalInstansi}
                               </td>
                               <td className="border border-stone-400 p-1.5 text-center font-mono">
@@ -265,32 +315,46 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                         );
 
                         return (
-                          <div key={pst.id} className="border border-stone-300 p-4 rounded mb-4">
-                            <div className="flex justify-between items-start mb-3 border-b border-stone-200 pb-2">
-                              <div>
-                                <span className="font-bold text-sm">
+                          <div
+                            key={pst.id}
+                            className="peserta-blangko-card border border-stone-300 p-4 rounded mb-6 break-inside-avoid print:break-inside-avoid print:mb-8 print:[break-after:page] last:print:[break-after:auto]"
+                          >
+                            <div className="flex justify-between items-start mb-3 border-b border-stone-200 pb-2 gap-2">
+                              <div className="min-w-0 flex-1 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
+                                <span className="font-bold text-sm text-stone-900 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] block">
                                   {pst.nomorDada} - {pst.nama}
                                 </span>
-                                <div className="text-[11px] text-stone-600">
+                                <div className="text-[11px] text-stone-600 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
                                   {pst.asalInstansi}
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <span className="text-[10px] text-stone-500">Waktu Tempuh:</span>
-                                <div className="font-mono font-bold">
+                              <div className="text-right shrink-0">
+                                <span className="text-[10px] text-stone-500 block">Waktu Tempuh:</span>
+                                <div className="font-mono font-bold text-stone-900">
                                   {sub ? formatSeconds(sub.waktuPengerjaanDetik) : '___ : ___'}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Kriteria list */}
-                            <table className="w-full border-collapse border border-stone-300 text-[10px] mb-3">
+                            {/* Tabel Blangko dengan Kolom Kriteria dan Kolom Ceklis Terpisah Berdampingan */}
+                            <table className="w-full border-collapse border border-stone-300 text-[10px] mb-3 table-fixed">
                               <thead>
-                                <tr className="bg-stone-100 font-semibold">
-                                  <th className="border border-stone-300 p-1 w-8 text-center">No</th>
-                                  <th className="border border-stone-300 p-1 text-left">Kriteria Penilaian</th>
-                                  <th className="border border-stone-300 p-1 w-20 text-center">Max Poin</th>
-                                  <th className="border border-stone-300 p-1 w-24 text-center">Nilai Angka</th>
+                                <tr className="bg-stone-100 font-semibold text-stone-800">
+                                  <th className="border border-stone-300 p-1.5 w-8 sm:w-10 text-center break-words [word-break:break-word]">
+                                    No
+                                  </th>
+                                  <th className="border border-stone-300 p-1.5 text-left w-[36%] break-words [word-break:break-word]">
+                                    Kriteria Penilaian
+                                  </th>
+                                  <th className="border border-stone-300 p-1.5 text-left w-[38%] break-words [word-break:break-word]">
+                                    Kotak Ceklis Penilaian (Skor)
+                                  </th>
+                                  <th className="border border-stone-300 p-1.5 w-16 sm:w-20 text-center break-words [word-break:break-word]">
+                                    Max Poin
+                                  </th>
+                                  <th className="border border-stone-300 p-1.5 w-20 sm:w-24 text-center break-words [word-break:break-word]">
+                                    Nilai Angka
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -299,26 +363,108 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                     (k) => k.kriteriaId === crit.id
                                   );
                                   return (
-                                    <tr key={crit.id}>
-                                      <td className="border border-stone-300 p-1 text-center">{idx + 1}</td>
-                                      <td className="border border-stone-300 p-1">
-                                        <div className="font-semibold">{crit.nama}</div>
-                                        <div className="text-stone-500 text-[9px]">{crit.deskripsi}</div>
+                                    <tr key={crit.id} className="align-top hover:bg-stone-50/50">
+                                      {/* Kolom 1: Nomor */}
+                                      <td className="border border-stone-300 p-1.5 text-center font-mono align-middle">
+                                        {idx + 1}
                                       </td>
-                                      <td className="border border-stone-300 p-1 text-center font-mono">
+
+                                      {/* Kolom 2: Kriteria Penilaian */}
+                                      <td className="border border-stone-300 p-2 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
+                                        <div className="font-bold text-stone-900 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] leading-snug">
+                                          {crit.nama}
+                                        </div>
+                                        {crit.deskripsi && (
+                                          <div className="text-stone-600 text-[9px] mt-1 break-words whitespace-pre-line [word-break:break-word] [overflow-wrap:anywhere] leading-relaxed">
+                                            {crit.deskripsi}
+                                          </div>
+                                        )}
+                                        <div className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
+                                          {crit.tipe === 'checkbox' ? 'Format: Ceklis Dinamis' : 'Format: Input Angka'}
+                                        </div>
+                                      </td>
+
+                                      {/* Kolom 3: Kotak Ceklis Penilaian (Terpisah ke Samping) */}
+                                      <td className="border border-stone-300 p-2 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
+                                        {crit.tipe === 'checkbox' ? (
+                                          <div className="space-y-1.5">
+                                            <div className="text-[9px] font-semibold text-stone-700 flex items-center justify-between flex-wrap gap-1">
+                                              <span className="text-stone-800 font-bold">
+                                                Ceklis Skor (1 s/d {crit.nilaiMaksimal}):
+                                              </span>
+                                              <span className="text-[8px] text-stone-500 font-normal">
+                                                {includeFilledScores && itemNilai
+                                                  ? `Tercentang: ${itemNilai.nilai} / ${crit.nilaiMaksimal}`
+                                                  : 'Centang kotak yang sesuai'}
+                                              </span>
+                                            </div>
+                                            {/* Container flex-wrap untuk kotak ceklis dengan word-break teratur */}
+                                            <div className="flex flex-wrap gap-1 items-center max-w-full break-words [overflow-wrap:anywhere]">
+                                              {Array.from({ length: crit.nilaiMaksimal }, (_, i) => i + 1).map((boxNum) => {
+                                                const isChecked = Boolean(
+                                                  includeFilledScores &&
+                                                  itemNilai &&
+                                                  ((itemNilai.checkedIndices && itemNilai.checkedIndices.includes(boxNum)) ||
+                                                   (!itemNilai.checkedIndices && itemNilai.nilai >= boxNum))
+                                                );
+                                                return (
+                                                  <div
+                                                    key={boxNum}
+                                                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono border break-words transition-colors ${
+                                                      isChecked
+                                                        ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold shadow-xs'
+                                                        : 'bg-stone-50 border-stone-300 text-stone-600'
+                                                    }`}
+                                                  >
+                                                    <span className="text-[10px] leading-none font-bold">
+                                                      {isChecked ? '☑' : '☐'}
+                                                    </span>
+                                                    <span>{boxNum}</span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="py-1">
+                                            <div className="text-[9px] text-stone-700 font-medium">
+                                              Input Nilai Langsung (0 s/d {crit.nilaiMaksimal} Poin)
+                                            </div>
+                                            <div className="text-[8px] text-stone-500 italic mt-0.5">
+                                              {includeFilledScores && itemNilai
+                                                ? `Nilai terinput: ${itemNilai.nilai} Poin`
+                                                : 'Isikan nilai angka pada kolom Nilai'}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </td>
+
+                                      {/* Kolom 4: Max Poin */}
+                                      <td className="border border-stone-300 p-1.5 text-center font-mono font-bold align-middle text-stone-800">
                                         {crit.nilaiMaksimal}
                                       </td>
-                                      <td className="border border-stone-300 p-1 text-center font-bold font-mono">
-                                        {includeFilledScores && itemNilai ? itemNilai.nilai : '______'}
+
+                                      {/* Kolom 5: Nilai Angka */}
+                                      <td className="border border-stone-300 p-1.5 text-center font-bold font-mono align-middle text-stone-900">
+                                        {includeFilledScores && itemNilai ? (
+                                          <span className="text-sm font-black">{itemNilai.nilai}</span>
+                                        ) : (
+                                          <span className="text-stone-400">______</span>
+                                        )}
                                       </td>
                                     </tr>
                                   );
                                 })}
-                                <tr className="bg-stone-50 font-bold">
-                                  <td colSpan={3} className="border border-stone-300 p-1 text-right">
-                                    Total Poin:
+
+                                {/* Baris Rekapitulasi Total Poin */}
+                                <tr className="bg-stone-100 font-bold text-stone-900">
+                                  <td colSpan={3} className="border border-stone-300 p-2 text-right break-words [word-break:break-word]">
+                                    Total Poin Penilaian:
                                   </td>
-                                  <td className="border border-stone-300 p-1 text-center font-mono text-sm">
+                                  <td className="border border-stone-300 p-2 text-center font-mono font-bold text-stone-800">
+                                    {ml.kriteriaList.reduce((acc, c) => acc + (c.nilaiMaksimal || 0), 0)}
+                                  </td>
+                                  <td className="border border-stone-300 p-2 text-center font-mono text-sm font-black text-stone-950">
                                     {includeFilledScores && sub ? sub.totalNilai : '______'}
                                   </td>
                                 </tr>
@@ -326,7 +472,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                             </table>
 
                             {includeFilledScores && sub?.catatanJuri && (
-                              <div className="bg-stone-50 p-2 rounded text-[10px] text-stone-700 italic border border-stone-200 mb-2">
+                              <div className="bg-stone-50 p-2 rounded text-[10px] text-stone-700 italic border border-stone-200 mb-2 break-words whitespace-normal">
                                 Catatan Juri: "{sub.catatanJuri}"
                               </div>
                             )}

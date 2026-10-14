@@ -2035,27 +2035,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {ml.kriteriaList?.map((crit, cIdx) => (
                           <div
                             key={crit.id}
-                            className="flex items-center justify-between bg-stone-950 p-3 rounded-lg border border-stone-800 text-xs"
+                            className="flex items-start justify-between bg-stone-950 p-3 rounded-lg border border-stone-800 text-xs gap-3"
                           >
-                            <div>
-                              <span className="font-bold text-stone-200">{cIdx + 1}. {crit.nama}</span>
-                              <span className="text-amber-400 ml-2 font-mono text-[11px] bg-stone-900 px-2 py-0.5 rounded border border-stone-800">
-                                Tipe: {crit.tipe === 'checkbox' ? 'Kotak Ceklis' : 'Input Angka Langsung'} • Nilai Maks: {crit.nilaiMaksimal}
-                              </span>
-                              {crit.deskripsi && <div className="text-[11px] text-stone-400 mt-0.5">{crit.deskripsi}</div>}
+                            <div className="min-w-0 flex-1 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-bold text-stone-200 break-words [word-break:break-word]">{cIdx + 1}. {crit.nama}</span>
+                                <span className="text-amber-400 font-mono text-[11px] bg-stone-900 px-2 py-0.5 rounded border border-stone-800 break-words">
+                                  Tipe: {crit.tipe === 'checkbox' ? 'Kotak Ceklis' : 'Input Angka Langsung'} • Nilai Maks: {crit.nilaiMaksimal}
+                                </span>
+                              </div>
+                              {crit.deskripsi && (
+                                <div className="text-[11px] text-stone-400 mt-1 break-words whitespace-pre-line [word-break:break-word] [overflow-wrap:anywhere]">
+                                  {crit.deskripsi}
+                                </div>
+                              )}
+                              {crit.tipe === 'checkbox' && (
+                                <div className="mt-2 pt-1.5 border-t border-stone-900">
+                                  <span className="text-[10px] text-stone-400 block mb-1">
+                                    Daftar Lengkap Ceklis ({crit.nilaiMaksimal} Kotak):
+                                  </span>
+                                  <div className="flex flex-wrap gap-1 items-center max-w-full break-words [overflow-wrap:anywhere]">
+                                    {Array.from({ length: crit.nilaiMaksimal }, (_, i) => i + 1).map((boxNum) => (
+                                      <span
+                                        key={boxNum}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-stone-900 border border-stone-800 rounded text-[10px] font-mono text-stone-300"
+                                      >
+                                        <span className="text-stone-500 font-bold">☐</span>
+                                        <span>{boxNum}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 onClick={() => handleOpenEditKriteria(ml.id, crit)}
-                                className="p-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded cursor-pointer"
+                                className="p-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded cursor-pointer transition-colors"
                                 title="Edit Kriteria"
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteKriteria(ml.id, crit.id, crit.nama)}
-                                className="p-1.5 bg-red-950 hover:bg-red-800 text-red-300 rounded cursor-pointer"
+                                className="p-1.5 bg-red-950 hover:bg-red-800 text-red-300 rounded cursor-pointer transition-colors"
                                 title="Hapus Kriteria"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

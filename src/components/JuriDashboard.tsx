@@ -602,15 +602,17 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                             className="bg-stone-900/70 border border-stone-800 rounded-xl p-4 space-y-3"
                           >
                             <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div>
-                                <h4 className="font-bold text-sm text-amber-200">
+                              <div className="min-w-0 flex-1 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
+                                <h4 className="font-bold text-sm text-amber-200 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
                                   {idx + 1}. {crit.nama}
                                 </h4>
-                                <p className="text-xs text-stone-400 mt-0.5">
-                                  {crit.deskripsi}
-                                </p>
+                                {crit.deskripsi && (
+                                  <p className="text-xs text-stone-400 mt-0.5 break-words whitespace-pre-line [word-break:break-word] [overflow-wrap:anywhere]">
+                                    {crit.deskripsi}
+                                  </p>
+                                )}
                               </div>
-                              <div className="bg-stone-950 px-2.5 py-1 rounded-lg border border-stone-800 text-xs font-mono">
+                              <div className="bg-stone-950 px-2.5 py-1 rounded-lg border border-stone-800 text-xs font-mono shrink-0">
                                 Nilai: <strong className="text-amber-400">{currentScore.nilai}</strong> / {crit.nilaiMaksimal}
                               </div>
                             </div>
