@@ -5,6 +5,7 @@ import {
   NilaiSubmission,
   Peserta,
   RankingParticipant,
+  JuriScoreDetail,
   TopupRequest,
   User,
   VoteRecord,
@@ -421,6 +422,31 @@ const DEFAULT_SUBMISSIONS: NilaiSubmission[] = [
     paktaIntegritasDisetujui: true,
     status: 'approved',
     createdAt: new Date(Date.now() - 2500000).toISOString(),
+    approvedAt: new Date(Date.now() - 2000000).toISOString(),
+    approvedBy: 'Usseradmin',
+  },
+  // Anindya Putri (pst_02) by juri2
+  {
+    id: 'sub_02_juri2',
+    mataLombaId: 'ml_01',
+    pesertaId: 'pst_02',
+    juriId: 'usr_juri2',
+    juriNama: 'Dra. Hj. Siti Aminah, M.Pd',
+    waktuPengerjaanDetik: 408,
+    nilaiKriteria: [
+      { kriteriaId: 'crit_1_1', nilai: 10, checkedIndices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+      { kriteriaId: 'crit_1_2', nilai: 10, checkedIndices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+      { kriteriaId: 'crit_1_3', nilai: 23 },
+      { kriteriaId: 'crit_1_4', nilai: 8, checkedIndices: [1, 2, 3, 4, 5, 6, 7, 8] },
+    ],
+    pelanggaranList: [],
+    totalPengurangan: 0,
+    totalNilai: 51,
+    catatanJuri: 'Artikulasi sempurna dan pemaparan sangat inspiratif.',
+    tandaTanganUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="40"><path d="M10 20 Q 40 30 70 10 T 90 30" stroke="%2378350f" fill="none" stroke-width="2"/></svg>',
+    paktaIntegritasDisetujui: true,
+    status: 'approved',
+    createdAt: new Date(Date.now() - 2400000).toISOString(),
     approvedAt: new Date(Date.now() - 2000000).toISOString(),
     approvedBy: 'Usseradmin',
   },
@@ -1292,7 +1318,7 @@ export const StorageService = {
     this.broadcastChange('all_reset');
   },
 
-  // CALCULATION LOGIC & RANKING
+  // CALCULATION LOGIC & RANKING (MULTI-JURI AGGREGATION & GABUNGAN)
   calculateRanking(mataLombaId: string): RankingParticipant[] {
     const allMataLomba = this.getMataLomba();
     const ml = allMataLomba.find(m => m.id === mataLombaId);
@@ -1306,35 +1332,59 @@ export const StorageService = {
     const results: RankingParticipant[] = pesertaList.map(pst => {
       const pstSubs = submissions.filter(s => s.pesertaId === pst.id);
       const count = pstSubs.length;
-      const totalScoreSum = pstSubs.reduce((acc, curr) => acc + curr.totalNilai, 0);
-      const totalTimeSum = pstSubs.reduce((acc, curr) => acc + curr.waktuPengerjaanDetik, 0);
+      const totalScoreSum = pstSubs.reduce((acc, curr) => acc + (Number(curr.totalNilai) || 0), 0);
+      const totalTimeSum = pstSubs.reduce((acc, curr) => acc + (Number(curr.waktuPengerjaanDetik) || 0), 0);
 
+      // Hitung nilai gabungan & rata-rata:
+      // Ketentuan:
+      // 1. Jika dinilai > 1 juri, gabungkan seluruh nilai dari masing-masing juri (akumulasi total & rata-rata)
+      // 2. Jika hanya dinilai 1 juri, nilai total gabungan tetap bernilai dari 1 juri tersebut tanpa NaN / undefined
+      const totalNilaiGabungan = count > 0 ? Number(totalScoreSum.toFixed(2)) : 0;
       const rataRataNilai = count > 0 ? Number((totalScoreSum / count).toFixed(2)) : 0;
       const rataRataWaktuDetik = count > 0 ? Math.round(totalTimeSum / count) : 0;
 
       const isApprovedComplete = ml.assignedJuriIds.length > 0 && count >= ml.assignedJuriIds.length;
+
+      // Rincian skor per juri untuk format rekapan
+      const juriScores: JuriScoreDetail[] = pstSubs.map(s => ({
+        juriId: s.juriId,
+        juriNama: s.juriNama,
+        totalNilai: Number(s.totalNilai) || 0,
+        waktuPengerjaanDetik: s.waktuPengerjaanDetik,
+      }));
 
       return {
         peserta: pst,
         mataLomba: ml,
         submissions: pstSubs,
         jumlahJuriMenilai: count,
+        totalNilaiGabungan,
         rataRataNilai,
         rataRataWaktuDetik,
         rank: 0,
         isApprovedComplete,
+        juriScores,
       };
     });
 
     // Ranking algorithm:
-    // 1. Highest average score (rataRataNilai DESC)
-    // 2. Tie-breaker: Fastest time (rataRataWaktuDetik ASC) when average scores are equal!
+    // Pada Format Hasil Penilaian Akhir, nilai yang digunakan untuk perankingan/kejuaraan adalah Nilai Total Gabungan tersebut!
+    // 1. Highest Nilai Total Gabungan (totalNilaiGabungan DESC)
+    // 2. Highest average score (rataRataNilai DESC)
+    // 3. Tie-breaker: Fastest time (rataRataWaktuDetik ASC) when scores are equal!
+    // 4. Nomor Urut ASC
     results.sort((a, b) => {
+      const scoreA = typeof a.totalNilaiGabungan === 'number' && !isNaN(a.totalNilaiGabungan) ? a.totalNilaiGabungan : a.rataRataNilai;
+      const scoreB = typeof b.totalNilaiGabungan === 'number' && !isNaN(b.totalNilaiGabungan) ? b.totalNilaiGabungan : b.rataRataNilai;
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
       if (b.rataRataNilai !== a.rataRataNilai) {
         return b.rataRataNilai - a.rataRataNilai;
       }
       // Tie breaker: only compare time if both have score > 0
-      if (a.rataRataNilai > 0 && b.rataRataNilai > 0) {
+      if (scoreA > 0 && scoreB > 0) {
         if (a.rataRataWaktuDetik !== b.rataRataWaktuDetik) {
           // Lesser seconds = faster = better rank!
           return a.rataRataWaktuDetik - b.rataRataWaktuDetik;
@@ -1343,10 +1393,11 @@ export const StorageService = {
       return a.peserta.nomorUrut - b.peserta.nomorUrut;
     });
 
-    // Assign rank and predikat juara:
+    // Assign rank and predikat juara berdasarkan perolehan Nilai Total Gabungan:
     results.forEach((item, index) => {
       item.rank = index + 1;
-      if (item.rataRataNilai > 0) {
+      const effectiveScore = typeof item.totalNilaiGabungan === 'number' && !isNaN(item.totalNilaiGabungan) ? item.totalNilaiGabungan : item.rataRataNilai;
+      if (effectiveScore > 0) {
         if (item.rank === 1) item.predikatJuara = 'Juara 1 (Emas)';
         else if (item.rank === 2) item.predikatJuara = 'Juara 2 (Perak)';
         else if (item.rank === 3) item.predikatJuara = 'Juara 3 (Perunggu)';

@@ -5,6 +5,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { JuriDashboard } from './components/JuriDashboard';
 import { VoterDashboard } from './components/VoterDashboard';
 import { DanaPaymentModal } from './components/DanaPaymentModal';
+import { BackgroundMusicPlayer } from './components/BackgroundMusicPlayer';
 import { StorageService } from './services/storage';
 import { soundService } from './services/sound';
 import { signInWithGoogle, signOutFromSupabase, onAuthStateChange } from './services/supabaseClient.js';
@@ -305,6 +306,9 @@ export const App: React.FC = () => {
           }}
         />
       )}
+
+      {/* Global Background Music Player (Autoplay & Looping) */}
+      <BackgroundMusicPlayer eventConfig={eventConfig} />
 
       {/* Login & Role Selection Modal */}
       {isLoginModalOpen && (

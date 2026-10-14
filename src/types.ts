@@ -148,14 +148,24 @@ export interface VoteRecord {
   createdAt?: string;
 }
 
+export interface JuriScoreDetail {
+  juriId: string;
+  juriNama: string;
+  totalNilai: number;
+  waktuPengerjaanDetik?: number;
+}
+
 export interface RankingParticipant {
   peserta: Peserta;
   mataLomba: MataLomba;
   submissions: NilaiSubmission[];
   jumlahJuriMenilai: number;
+  totalNilaiGabungan: number;
   rataRataNilai: number;
   rataRataWaktuDetik: number;
   rank: number;
   isApprovedComplete: boolean;
   predikatJuara?: string;
+  juriScores?: JuriScoreDetail[];
 }
+

@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { EventConfig, MataLomba, Peserta, NilaiSubmission, RankingParticipant } from '../types';
 import { StorageService } from '../services/storage';
 import { soundService } from '../services/sound';
-import { Printer, Download, X, Award, ShieldCheck, Clock, Loader2 } from 'lucide-react';
+import { Printer, Download, X, Award, ShieldCheck, Clock, Loader2, FileText, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 
@@ -34,6 +34,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   const printContentRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [rekapTab, setRekapTab] = useState<'keduanya' | 'rekapan' | 'hasil_akhir'>('keduanya');
 
   const allMataLomba = StorageService.getMataLomba();
   const allPeserta = StorageService.getPeserta();
@@ -61,12 +62,58 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
     try {
       const element = printContentRef.current;
+
+      // Jika mode Blangko Penilaian: pisahkan setiap nomor peserta ke lembaran/halaman PDF baru secara otomatis
+      if (!mode.startsWith('rekapan')) {
+        const participantCards = element.querySelectorAll<HTMLElement>('.peserta-blangko-card');
+        if (participantCards.length > 0) {
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfPageHeight = pdf.internal.pageSize.getHeight();
+
+          for (let i = 0; i < participantCards.length; i++) {
+            const cardEl = participantCards[i];
+            const cardCanvas = await html2canvas(cardEl, {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              backgroundColor: '#ffffff',
+              windowWidth: 1200,
+            });
+
+            if (i > 0) {
+              pdf.addPage();
+            }
+
+            const imgData = cardCanvas.toDataURL('image/png');
+            const margin = 8;
+            const printWidth = pdfWidth - (margin * 2);
+            const printHeight = (cardCanvas.height * printWidth) / cardCanvas.width;
+
+            pdf.addImage(
+              imgData,
+              'PNG',
+              margin,
+              margin,
+              printWidth,
+              Math.min(printHeight, pdfPageHeight - (margin * 2))
+            );
+          }
+
+          pdf.save(`Blangko_Penilaian_${(selectedMl?.kode || 'ALL')}_${Date.now()}.pdf`);
+          soundService.playSuccessFanfare();
+          setIsExporting(false);
+          return;
+        }
+      }
+
+      // Mode Berita Acara & Rekapitulasi: Multi-page slicing dokumen rangkuman
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        windowWidth: 1200, // Memastikan layout konsisten dalam proporsi standar dokumen A4 di semua perangkat (termasuk mobile)
+        windowWidth: 1200, // Memastikan layout konsisten dalam proporsi standar dokumen A4
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -78,7 +125,6 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       if (totalPdfHeight <= pdfPageHeight) {
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, totalPdfHeight);
       } else {
-        // Multi-page slicing for longer documents
         let heightLeft = totalPdfHeight;
         let position = 0;
 
@@ -307,9 +353,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                       </tbody>
                     </table>
                   ) : (
-                    /* Blangko Lembar Nilai */
                     <div className="space-y-6">
-                      {lombaPeserta.map((pst) => {
+                      {lombaPeserta.map((pst, pstIdx) => {
                         const sub = allSubmissions.find(
                           (s) => s.mataLombaId === ml.id && s.pesertaId === pst.id
                         );
@@ -317,8 +362,34 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                         return (
                           <div
                             key={pst.id}
-                            className="peserta-blangko-card border border-stone-300 p-4 rounded mb-6 break-inside-avoid print:break-inside-avoid print:mb-8 print:[break-after:page] last:print:[break-after:auto]"
+                            className="peserta-blangko-card peserta-page-break bg-white border border-stone-300 p-4 sm:p-5 rounded-lg mb-6 break-inside-avoid print:break-inside-avoid print:border-none print:p-0 print:m-0 print:[break-before:page] print:[page-break-before:always] first:print:[break-before:auto] first:print:[page-break-before:auto]"
+                            style={{
+                              breakBefore: pstIdx === 0 ? 'auto' : 'page',
+                              pageBreakBefore: pstIdx === 0 ? 'auto' : 'always',
+                            }}
                           >
+                            {/* Kop & Identitas Mandiri Lembar Penilaian Peserta */}
+                            <div className="border-b-2 border-stone-800 pb-2 mb-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="font-extrabold text-xs uppercase tracking-wider text-stone-900">
+                                    {eventConfig.judulKegiatan || 'PANITIA PENYELENGGARA LOMBA DIGITAL'}
+                                  </div>
+                                  <div className="text-[10px] text-stone-600 font-medium">
+                                    {eventConfig.penyelenggara || 'S-IMPEL DIGITAL'} | {eventConfig.tempat || 'Jawa Barat'}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-stone-100 border border-stone-300 text-stone-700">
+                                    LEMBAR BLANGKO PENILAIAN
+                                  </span>
+                                  <div className="text-[9px] text-stone-500 font-mono mt-0.5">
+                                    Mata Lomba: [{ml.kode}] {ml.nama}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
                             <div className="flex justify-between items-start mb-3 border-b border-stone-200 pb-2 gap-2">
                               <div className="min-w-0 flex-1 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
                                 <span className="font-bold text-sm text-stone-900 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] block">
@@ -477,16 +548,28 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                               </div>
                             )}
 
-                            {includeFilledScores && sub?.tandaTanganUrl && (
-                              <div className="flex justify-end items-center gap-2 mt-2">
-                                <span className="text-[10px] text-stone-500">Tanda Tangan Juri:</span>
-                                <img
-                                  src={sub.tandaTanganUrl}
-                                  alt="Tanda Tangan"
-                                  className="h-8 max-w-[120px] object-contain border-b border-stone-400"
-                                />
+                            {/* Baris Tanda Tangan & Pengesahan Lembar Peserta */}
+                            <div className="mt-4 pt-3 border-t border-stone-300 flex justify-between items-end text-xs">
+                              <div className="text-[9px] text-stone-500">
+                                <div>No. Register: REG-{(selectedMl?.kode || ml.kode)}/PST-{pst.nomorDada}</div>
+                                <div>Dicetak Pada: {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</div>
                               </div>
-                            )}
+                              <div className="text-center min-w-[140px]">
+                                <p className="text-[10px] text-stone-700 font-medium mb-8">Tanda Tangan Dewan Juri:</p>
+                                {includeFilledScores && sub?.tandaTanganUrl ? (
+                                  <img
+                                    src={sub.tandaTanganUrl}
+                                    alt="Tanda Tangan"
+                                    className="h-10 max-w-[140px] object-contain mx-auto border-b border-stone-600 mb-1"
+                                  />
+                                ) : (
+                                  <div className="w-36 border-b border-stone-800 mx-auto mb-1" />
+                                )}
+                                <p className="text-[10px] font-bold text-stone-900">
+                                  ({sub?.juriNama || 'Dewan Juri Penilai'})
+                                </p>
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
@@ -496,35 +579,37 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
               );
             })}
 
-            {/* Official Signatures Section */}
-            <div className="mt-8 pt-4 border-t border-stone-300 text-center grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-[10px] text-stone-600 mb-12">
-                  Mengetahui,<br />
-                  <strong>Ketua Dewan Juri</strong>
-                </p>
-                <div className="w-32 border-b border-stone-800 mx-auto" />
-                <p className="text-[9px] text-stone-500 mt-1">(............................................)</p>
-              </div>
+            {/* Official Signatures Section (Hanya untuk Dokumen Berita Acara Rekapitulasi) */}
+            {mode.startsWith('rekapan') && (
+              <div className="mt-8 pt-4 border-t border-stone-300 text-center grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-[10px] text-stone-600 mb-12">
+                    Mengetahui,<br />
+                    <strong>Ketua Dewan Juri</strong>
+                  </p>
+                  <div className="w-32 border-b border-stone-800 mx-auto" />
+                  <p className="text-[9px] text-stone-500 mt-1">(............................................)</p>
+                </div>
 
-              <div>
-                <p className="text-[10px] text-stone-600 mb-12">
-                  Diverifikasi Oleh,<br />
-                  <strong>Sekretaris Panitia</strong>
-                </p>
-                <div className="w-32 border-b border-stone-800 mx-auto" />
-                <p className="text-[9px] text-stone-500 mt-1">(............................................)</p>
-              </div>
+                <div>
+                  <p className="text-[10px] text-stone-600 mb-12">
+                    Diverifikasi Oleh,<br />
+                    <strong>Sekretaris Panitia</strong>
+                  </p>
+                  <div className="w-32 border-b border-stone-800 mx-auto" />
+                  <p className="text-[9px] text-stone-500 mt-1">(............................................)</p>
+                </div>
 
-              <div>
-                <p className="text-[10px] text-stone-600 mb-12">
-                  Disahkan Pada Tanggal:<br />
-                  <strong>{new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</strong>
-                </p>
-                <div className="w-32 border-b border-stone-800 mx-auto" />
-                <p className="text-[9px] text-stone-500 mt-1">Koordinator Pelaksana</p>
+                <div>
+                  <p className="text-[10px] text-stone-600 mb-12">
+                    Disahkan Pada Tanggal:<br />
+                    <strong>{new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</strong>
+                  </p>
+                  <div className="w-32 border-b border-stone-800 mx-auto" />
+                  <p className="text-[9px] text-stone-500 mt-1">Koordinator Pelaksana</p>
+                </div>
               </div>
-            </div>
+            )}
 
           </div>
         </div>

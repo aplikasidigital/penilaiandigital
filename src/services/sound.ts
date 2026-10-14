@@ -6,6 +6,44 @@ class SoundService {
   private bgmAudio: HTMLAudioElement | null = null;
   private isMuted: boolean = false;
   private currentBgmUrl: string = '';
+  private bgmVolume: number = 0.35;
+  private isBgmPlayingState: boolean = false;
+  private synthGainNode: GainNode | null = null;
+  private synthTimer: any = null;
+  private activeSynthNodes: { osc: OscillatorNode; gain: GainNode }[] = [];
+  private stateListeners: Set<() => void> = new Set();
+
+  private notifyStateChange(): void {
+    this.stateListeners.forEach(listener => {
+      try {
+        listener();
+      } catch {
+        // ignore listener errors
+      }
+    });
+  }
+
+  public subscribe(listener: () => void): () => void {
+    this.stateListeners.add(listener);
+    return () => {
+      this.stateListeners.delete(listener);
+    };
+  }
+
+  public getIsMuted(): boolean {
+    return this.isMuted;
+  }
+
+  public getBgmVolume(): number {
+    return this.bgmVolume;
+  }
+
+  public isBgmPlaying(): boolean {
+    if (this.bgmAudio) {
+      return !this.bgmAudio.paused;
+    }
+    return this.isBgmPlayingState;
+  }
 
   private getAudioContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -19,13 +57,6 @@ class SoundService {
       this.audioCtx.resume().catch(() => {});
     }
     return this.audioCtx;
-  }
-
-  public setMuted(muted: boolean): void {
-    this.isMuted = muted;
-    if (this.bgmAudio) {
-      this.bgmAudio.muted = muted;
-    }
   }
 
   public playClick(): void {
@@ -144,30 +175,227 @@ class SoundService {
     }
   }
 
-  public startGlobalBGM(url: string): void {
-    if (typeof window === 'undefined') return;
-    if (!url) {
+  public setMuted(muted: boolean): void {
+    this.isMuted = muted;
+    if (this.bgmAudio) {
+      this.bgmAudio.muted = muted;
+    }
+    if (this.synthGainNode && this.audioCtx) {
+      this.synthGainNode.gain.setValueAtTime(
+        muted ? 0 : this.bgmVolume * 0.15,
+        this.audioCtx.currentTime
+      );
+    }
+    this.notifyStateChange();
+  }
+
+  public setBgmVolume(volume: number): void {
+    this.bgmVolume = Math.max(0, Math.min(1, volume));
+    if (this.bgmAudio) {
+      this.bgmAudio.volume = this.bgmVolume;
+    }
+    if (this.synthGainNode && this.audioCtx && !this.isMuted) {
+      this.synthGainNode.gain.setValueAtTime(
+        this.bgmVolume * 0.15,
+        this.audioCtx.currentTime
+      );
+    }
+    this.notifyStateChange();
+  }
+
+  public async startGlobalBGM(url?: string): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
+
+    // If an audio file URL is supplied (e.g. uploaded by Admin in Settings)
+    if (url && url.trim().length > 0) {
+      this.stopSynthBGM();
+      if (this.currentBgmUrl === url && this.bgmAudio) {
+        if (this.bgmAudio.paused) {
+          try {
+            await this.bgmAudio.play();
+            this.isBgmPlayingState = true;
+            this.notifyStateChange();
+            return true;
+          } catch {
+            this.isBgmPlayingState = false;
+            this.notifyStateChange();
+            return false;
+          }
+        }
+        return true;
+      }
+
       this.stopGlobalBGM();
-      return;
-    }
-    if (this.currentBgmUrl === url && this.bgmAudio && !this.bgmAudio.paused) {
-      return;
+      this.currentBgmUrl = url;
+
+      try {
+        const audio = new Audio(url);
+        audio.loop = true;
+        audio.volume = this.bgmVolume;
+        audio.muted = this.isMuted;
+        this.bgmAudio = audio;
+
+        audio.addEventListener('play', () => {
+          this.isBgmPlayingState = true;
+          this.notifyStateChange();
+        });
+        audio.addEventListener('pause', () => {
+          this.isBgmPlayingState = false;
+          this.notifyStateChange();
+        });
+        audio.addEventListener('ended', () => {
+          this.isBgmPlayingState = false;
+          this.notifyStateChange();
+        });
+
+        await audio.play();
+        this.isBgmPlayingState = true;
+        this.notifyStateChange();
+        return true;
+      } catch {
+        this.isBgmPlayingState = false;
+        this.notifyStateChange();
+        return false;
+      }
     }
 
-    this.stopGlobalBGM();
-    this.currentBgmUrl = url;
+    // Otherwise, play the default ambient harmonic background loop via Web Audio API
+    if (this.bgmAudio) {
+      this.bgmAudio.pause();
+      this.bgmAudio = null;
+    }
+    this.currentBgmUrl = '';
 
+    return this.startSynthBGM();
+  }
+
+  private startSynthBGM(): boolean {
     try {
-      this.bgmAudio = new Audio(url);
-      this.bgmAudio.loop = true;
-      this.bgmAudio.volume = 0.35;
-      this.bgmAudio.muted = this.isMuted;
-      this.bgmAudio.play().catch(() => {
-        // Autoplay policy might block until user gesture
-      });
+      const ctx = this.getAudioContext();
+      if (!ctx) return false;
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+
+      this.stopSynthBGM();
+
+      // Master BGM gain node
+      const masterBgmGain = ctx.createGain();
+      const initialGain = this.isMuted ? 0 : this.bgmVolume * 0.15;
+      masterBgmGain.gain.setValueAtTime(initialGain, ctx.currentTime);
+      masterBgmGain.connect(ctx.destination);
+      this.synthGainNode = masterBgmGain;
+
+      // Chord progressions for soothing, continuous looping ambient background music:
+      // Chord 1: C major (C4, E4, G4, B4)
+      // Chord 2: A minor 7 (A3, C4, E4, G4)
+      // Chord 3: F major 7 (F3, A3, C4, E4)
+      // Chord 4: G add9 (G3, B3, D4, A4)
+      const chords = [
+        [261.63, 329.63, 392.00, 493.88],
+        [220.00, 261.63, 329.63, 392.00],
+        [174.61, 220.00, 261.63, 329.63],
+        [196.00, 246.94, 293.66, 440.00],
+      ];
+
+      let chordIdx = 0;
+
+      const playChord = () => {
+        if (!this.synthGainNode || !this.audioCtx) return;
+        const currentCtx = this.audioCtx;
+        const now = currentCtx.currentTime;
+        const notes = chords[chordIdx % chords.length];
+        chordIdx++;
+
+        // Clean up older completed nodes
+        this.activeSynthNodes = this.activeSynthNodes.filter(item => {
+          try {
+            item.osc.stop();
+          } catch {}
+          return false;
+        });
+
+        // Play gentle soft tones with slow attack and release
+        notes.forEach((freq, i) => {
+          try {
+            const osc = currentCtx.createOscillator();
+            const noteGain = currentCtx.createGain();
+
+            osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+            osc.frequency.setValueAtTime(freq, now);
+
+            // Detune slightly for lush warmth
+            osc.detune.setValueAtTime((i - 1.5) * 4, now);
+
+            // Envelope: 1.2s attack, 3.5s hold/decay
+            noteGain.gain.setValueAtTime(0.001, now);
+            noteGain.gain.linearRampToValueAtTime(0.04 / (i + 1), now + 1.2);
+            noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 4.5);
+
+            osc.connect(noteGain);
+            noteGain.connect(this.synthGainNode!);
+
+            osc.start(now);
+            osc.stop(now + 4.6);
+
+            this.activeSynthNodes.push({ osc, gain: noteGain });
+          } catch {}
+        });
+      };
+
+      // Play first chord immediately
+      playChord();
+
+      // Loop every 3.8 seconds continuously
+      this.synthTimer = setInterval(playChord, 3800);
+
+      this.isBgmPlayingState = true;
+      this.notifyStateChange();
+      return true;
     } catch {
-      // Ignore
+      this.isBgmPlayingState = false;
+      this.notifyStateChange();
+      return false;
     }
+  }
+
+  private stopSynthBGM(): void {
+    if (this.synthTimer) {
+      clearInterval(this.synthTimer);
+      this.synthTimer = null;
+    }
+    this.activeSynthNodes.forEach(item => {
+      try {
+        item.osc.stop();
+      } catch {}
+    });
+    this.activeSynthNodes = [];
+    if (this.synthGainNode) {
+      try {
+        this.synthGainNode.disconnect();
+      } catch {}
+      this.synthGainNode = null;
+    }
+  }
+
+  public pauseBGM(): void {
+    if (this.bgmAudio) {
+      this.bgmAudio.pause();
+    }
+    this.stopSynthBGM();
+    this.isBgmPlayingState = false;
+    this.notifyStateChange();
+  }
+
+  public async resumeBGM(): Promise<boolean> {
+    const ctx = this.getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      try {
+        await ctx.resume();
+      } catch {}
+    }
+    return this.startGlobalBGM(this.currentBgmUrl);
   }
 
   public stopGlobalBGM(): void {
@@ -176,13 +404,10 @@ class SoundService {
       this.bgmAudio.currentTime = 0;
       this.bgmAudio = null;
     }
+    this.stopSynthBGM();
     this.currentBgmUrl = '';
-  }
-
-  public setBgmVolume(volume: number): void {
-    if (this.bgmAudio) {
-      this.bgmAudio.volume = Math.max(0, Math.min(1, volume));
-    }
+    this.isBgmPlayingState = false;
+    this.notifyStateChange();
   }
 }
 

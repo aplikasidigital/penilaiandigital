@@ -2572,7 +2572,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             ? 'bg-red-950 text-red-300 border border-red-500/40'
                             : 'bg-amber-950 text-amber-300 border border-amber-500/40 animate-pulse'
                         }`}>
-                          {item.status === 'approved' ? '✓ Disetujui' : item.status === 'rejected' ? '✕ Ditolak' : 'Pending'}
+                          {item.status === 'approved' ? '✓ Disetujui' : item.status === 'rejected' ? '✕ Ditolak' : '⏳ Menunggu Verifikasi Admin'}
                         </span>
                       </td>
                       <td className="p-3 text-center">

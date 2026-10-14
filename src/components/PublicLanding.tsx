@@ -319,8 +319,15 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
 
                   <div className="mt-4 pt-3 border-t border-stone-800 flex justify-between items-center text-xs">
                     <div>
-                      <span className="text-stone-400 block text-[10px]">Rata-Rata Nilai:</span>
-                      <strong className="text-lg font-mono text-slate-200">{filteredRankings[1].rataRataNilai.toFixed(2)}</strong>
+                      <span className="text-stone-400 block text-[10px]">Nilai Total Gabungan:</span>
+                      <strong className="text-lg font-mono text-slate-200">
+                        {filteredRankings[1].totalNilaiGabungan !== undefined && filteredRankings[1].totalNilaiGabungan > 0
+                          ? filteredRankings[1].totalNilaiGabungan
+                          : filteredRankings[1].rataRataNilai.toFixed(2)}
+                      </strong>
+                      <span className="text-[10px] text-stone-400 block mt-0.5">
+                        Rata-rata: {filteredRankings[1].rataRataNilai.toFixed(2)} ({filteredRankings[1].jumlahJuriMenilai} Juri)
+                      </span>
                     </div>
                     <div>
                       <span className="text-stone-400 block text-[10px]">Waktu:</span>
@@ -352,8 +359,15 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
 
                   <div className="mt-4 pt-3 border-t border-amber-900/60 flex justify-between items-center text-xs">
                     <div>
-                      <span className="text-amber-200/70 block text-[10px]">Rata-Rata Nilai:</span>
-                      <strong className="text-2xl font-mono text-amber-300 font-extrabold">{filteredRankings[0].rataRataNilai.toFixed(2)}</strong>
+                      <span className="text-amber-200/70 block text-[10px]">Nilai Total Gabungan:</span>
+                      <strong className="text-2xl font-mono text-amber-300 font-extrabold">
+                        {filteredRankings[0].totalNilaiGabungan !== undefined && filteredRankings[0].totalNilaiGabungan > 0
+                          ? filteredRankings[0].totalNilaiGabungan
+                          : filteredRankings[0].rataRataNilai.toFixed(2)}
+                      </strong>
+                      <span className="text-[10px] text-amber-200/70 block mt-0.5">
+                        Rata-rata: {filteredRankings[0].rataRataNilai.toFixed(2)} ({filteredRankings[0].jumlahJuriMenilai} Juri)
+                      </span>
                     </div>
                     <div>
                       <span className="text-amber-200/70 block text-[10px]">Waktu:</span>
@@ -382,8 +396,15 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
 
                   <div className="mt-4 pt-3 border-t border-stone-800 flex justify-between items-center text-xs">
                     <div>
-                      <span className="text-stone-400 block text-[10px]">Rata-Rata Nilai:</span>
-                      <strong className="text-lg font-mono text-amber-500">{filteredRankings[2].rataRataNilai.toFixed(2)}</strong>
+                      <span className="text-stone-400 block text-[10px]">Nilai Total Gabungan:</span>
+                      <strong className="text-lg font-mono text-amber-500">
+                        {filteredRankings[2].totalNilaiGabungan !== undefined && filteredRankings[2].totalNilaiGabungan > 0
+                          ? filteredRankings[2].totalNilaiGabungan
+                          : filteredRankings[2].rataRataNilai.toFixed(2)}
+                      </strong>
+                      <span className="text-[10px] text-stone-400 block mt-0.5">
+                        Rata-rata: {filteredRankings[2].rataRataNilai.toFixed(2)} ({filteredRankings[2].jumlahJuriMenilai} Juri)
+                      </span>
                     </div>
                     <div>
                       <span className="text-stone-400 block text-[10px]">Waktu:</span>
@@ -399,7 +420,7 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
               <div className="px-5 py-4 bg-stone-900 border-b border-stone-800 flex justify-between items-center">
                 <h3 className="font-bold text-sm text-stone-100 flex items-center gap-2">
                   <Award className="w-4 h-4 text-amber-400" />
-                  Papan Klasemen Resmi Seluruh Peserta
+                  Papan Klasemen Resmi Seluruh Peserta (Hasil Akhir & Rekapan Multi-Juri)
                 </h3>
                 <span className="text-xs text-stone-400">
                   Total Peserta: {filteredRankings.length}
@@ -415,8 +436,9 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
                       <th className="p-3.5">Nama Peserta</th>
                       <th className="p-3.5">Asal Instansi</th>
                       <th className="p-3.5 text-center">Waktu Pengerjaan</th>
-                      <th className="p-3.5 text-center">Juri Selesai</th>
-                      <th className="p-3.5 text-center">Rata-Rata Nilai</th>
+                      <th className="p-3.5 text-center">Juri Dinilai</th>
+                      <th className="p-3.5 text-center text-amber-300 font-bold">Nilai Total Gabungan</th>
+                      <th className="p-3.5 text-center">Rata-Rata</th>
                       <th className="p-3.5 text-center">Predikat</th>
                     </tr>
                   </thead>
@@ -463,9 +485,16 @@ export const PublicLanding: React.FC<PublicLandingProps> = ({
                           )}
                         </td>
                         <td className="p-3.5 text-center text-stone-400 font-mono">
-                          {item.jumlahJuriMenilai} / {currentMl.assignedJuriIds.length}
+                          {item.jumlahJuriMenilai} / {currentMl.assignedJuriIds.length || item.jumlahJuriMenilai || 1} Juri
                         </td>
                         <td className="p-3.5 text-center font-mono font-extrabold text-sm text-amber-300">
+                          {item.totalNilaiGabungan !== undefined && item.totalNilaiGabungan > 0
+                            ? item.totalNilaiGabungan
+                            : item.rataRataNilai > 0
+                            ? item.rataRataNilai
+                            : '-'}
+                        </td>
+                        <td className="p-3.5 text-center font-mono text-xs text-stone-300">
                           {item.rataRataNilai > 0 ? item.rataRataNilai.toFixed(2) : '-'}
                         </td>
                         <td className="p-3.5 text-center">

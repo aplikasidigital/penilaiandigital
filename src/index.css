@@ -65,6 +65,25 @@
     page-break-after: always !important;
   }
 
+  /* Pemisahan Lembaran Baru Otomatis per Nomor Peserta (Page Break Always) */
+  .peserta-blangko-card,
+  .peserta-page-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-before: page !important;
+    page-break-before: always !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 4mm !important;
+  }
+
+  .peserta-blangko-card:first-of-type,
+  .peserta-page-break:first-of-type {
+    break-before: auto !important;
+    page-break-before: auto !important;
+    padding-top: 0 !important;
+  }
+
   table {
     border-collapse: collapse !important;
     width: 100% !important;
