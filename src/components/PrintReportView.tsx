@@ -851,10 +851,10 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                     Kriteria Penilaian
                                   </th>
                                   <th className="border border-stone-300 p-1.5 text-left w-[52%] break-words [word-break:break-word]">
-                                    Kotak Ceklis Penilaian (Skor)
+                                    {isAkumulasiBlangko ? 'Rincian Hasil Penilaian Semua Dewan Juri' : 'Kotak Ceklis Penilaian (Skor)'}
                                   </th>
                                   <th className="border border-stone-300 p-1.5 w-24 sm:w-28 text-center break-words [word-break:break-word]">
-                                    {isAkumulasiBlangko ? 'Nilai Akumulasi' : 'Nilai Angka'}
+                                    {isAkumulasiBlangko ? 'Nilai Total Akumulasi' : 'Nilai Angka'}
                                   </th>
                                 </tr>
                               </thead>
@@ -886,219 +886,165 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                         {idx + 1}
                                       </td>
 
-                                      {/* Kolom 2: Kriteria Penilaian */}
-                                      <td className="border border-stone-300 p-2 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
+                                      {/* Kolom 2: Kriteria Penilaian (HANYA Nama Kriteria Bersih Tanpa Teks Deskripsi Panjang) */}
+                                      <td className="border border-stone-300 p-2 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] align-middle">
                                         <div className="font-bold text-stone-900 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] leading-snug">
                                           {crit.nama}
                                         </div>
-                                        {crit.deskripsi && (
-                                          <div className="text-stone-600 text-[9px] mt-1 break-words whitespace-pre-line [word-break:break-word] [overflow-wrap:anywhere] leading-relaxed">
-                                            {crit.deskripsi}
-                                          </div>
-                                        )}
-                                        <div className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-medium bg-stone-100 text-stone-600 border border-stone-200">
-                                          {crit.tipe === 'checkbox' && `Format: Ceklis Bernomor (${scaleItems.join(', ')})`}
-                                          {crit.tipe === 'toggle' && 'Format: Ceklis / Toggle Satuan PBB'}
-                                          {crit.tipe === 'kelipatan' && `Format: Angka Kelipatan (${crit.kelipatan || 5} Poin)`}
-                                          {crit.tipe === 'number' && 'Format: Input Angka Bebas'}
-                                        </div>
                                       </td>
 
-                                      {/* Kolom 3: Kotak Ceklis Penilaian (Diperlebar & Nyaman Dibaca) */}
-                                      <td className="border border-stone-300 p-2.5 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere]">
-                                        {crit.tipe === 'checkbox' ? (
+                                      {/* Kolom 3: Rincian Hasil Penilaian dari Semua Dewan Juri (Akumulasi) atau Kotak Ceklis (Standar) */}
+                                      <td className="border border-stone-300 p-2.5 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] align-middle">
+                                        {isAkumulasiBlangko ? (
+                                          /* 1. BLANGKO AKUMULASI: RINCIAN PENILAIAN DARI SEMUA DEWAN JURI TANPA ELEMEN CEKLIS */
                                           <div className="space-y-1.5">
-                                            {/* Baris Kotak Ceklis Skala Nilai Lengkap */}
-                                            <div className="flex flex-wrap items-center gap-1.5">
-                                              {scaleItems.map((boxNum) => {
-                                                const isChecked = isAkumulasiBlangko
-                                                  ? activeSubs.some((s) => {
-                                                      const kn = s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id);
-                                                      return kn ? kn.nilai >= boxNum : false;
-                                                    })
-                                                  : includeFilledScores && itemNilai
-                                                    ? itemNilai.nilai >= boxNum
-                                                    : false;
+                                            <div className={`grid gap-1.5 ${
+                                              displayedJuris.length <= 2
+                                                ? 'grid-cols-2'
+                                                : displayedJuris.length === 3
+                                                  ? 'grid-cols-3'
+                                                  : 'grid-cols-2 sm:grid-cols-4'
+                                            }`}>
+                                              {displayedJuris.map((juri, jIdx) => {
+                                                const judgeSub = allSubmissions.find(
+                                                  (s) => s.mataLombaId === ml.id && s.pesertaId === pst.id && s.juriId === juri.id
+                                                );
+                                                const kItem = judgeSub?.nilaiKriteria?.find((k) => k.kriteriaId === crit.id);
+                                                const scoreVal = kItem ? Number(kItem.nilai) || 0 : (judgeSub ? 0 : null);
 
                                                 return (
                                                   <div
-                                                    key={boxNum}
-                                                    className={`inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded text-[9px] font-mono border transition-all ${
-                                                      isChecked
-                                                        ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
-                                                        : 'bg-white border-stone-300 text-stone-600'
-                                                    }`}
+                                                    key={juri.id}
+                                                    className="bg-stone-50 border border-stone-200/90 rounded p-1.5 flex items-center justify-between shadow-2xs"
                                                   >
-                                                    <span className="mr-0.5 text-[8px]">{isChecked ? '☑' : '☐'}</span>
-                                                    <span>{boxNum}</span>
+                                                    <div className="min-w-0 mr-1.5">
+                                                      <span className="font-bold text-[9px] text-stone-800 block truncate">
+                                                        Dewan Juri {jIdx + 1}
+                                                      </span>
+                                                      <span className="text-[8px] text-stone-500 block truncate">
+                                                        {juri.name}
+                                                      </span>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                      <span className="font-mono font-black text-xs text-stone-950 bg-white border border-stone-300 px-2 py-0.5 rounded shadow-2xs">
+                                                        {scoreVal !== null ? scoreVal : '-'}
+                                                      </span>
+                                                      <span className="text-[8px] text-stone-500 ml-1">Poin</span>
+                                                    </div>
                                                   </div>
                                                 );
                                               })}
                                             </div>
 
-                                            {/* Rincian nilai per juri jika mode akumulasi */}
-                                            {isAkumulasiBlangko && activeSubs.length > 0 ? (
-                                              <div className="flex flex-wrap items-center gap-1.5 text-[8px] text-stone-600 pt-1 border-t border-stone-200 mt-1">
-                                                <span className="font-semibold text-stone-700">Rincian Dewan Juri:</span>
-                                                {activeSubs.map((s, sIdx) => {
-                                                  const val = s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai ?? 0;
-                                                  return (
-                                                    <span
-                                                      key={s.id || sIdx}
-                                                      className="px-1.5 py-0.5 rounded bg-stone-100 border border-stone-300 font-mono text-stone-800"
-                                                    >
-                                                      {s.juriNama ? s.juriNama.split(' ')[0] : `Juri ${sIdx + 1}`}: <strong>{val}</strong>
-                                                    </span>
-                                                  );
-                                                })}
-                                              </div>
-                                            ) : (
-                                              <div className="text-[8px] text-stone-500 italic mt-0.5 break-words whitespace-normal">
-                                                *Centang kotak poin sesuai capaian ({scaleItems[0]} s/d {scaleItems[scaleItems.length - 1]})
-                                              </div>
-                                            )}
-                                          </div>
-                                        ) : crit.tipe === 'toggle' ? (
-                                          <div className="space-y-1.5">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                              <div
-                                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-[9px] font-mono border ${
-                                                  (isAkumulasiBlangko
-                                                    ? activeSubs.some((s) => (s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai || 0) > 0)
-                                                    : includeFilledScores && itemNilai && itemNilai.nilai > 0)
-                                                    ? 'bg-emerald-100 border-emerald-600 text-emerald-950 font-bold'
-                                                    : 'bg-white border-stone-300 text-stone-700'
-                                                }`}
-                                              >
-                                                <span className="text-[10px] font-bold">
-                                                  {(isAkumulasiBlangko
-                                                    ? activeSubs.some((s) => (s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai || 0) > 0)
-                                                    : includeFilledScores && itemNilai && itemNilai.nilai > 0)
-                                                    ? '☑'
-                                                    : '☐'}
-                                                </span>
-                                                <span>
-                                                  Gerakan Sempurna / Terpenuhi (+{crit.bobotNilai || crit.nilaiMaksimal} Poin)
-                                                </span>
-                                              </div>
-
-                                              {isAkumulasiBlangko && activeSubs.length > 0 && (
-                                                <span className="text-[8px] bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded font-medium">
-                                                  {activeSubs.filter((s) => (s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai || 0) > 0).length} / {activeSubs.length} Juri Menilai Terpenuhi
+                                            {/* Baris Keterangan Transparan & Rata-rata */}
+                                            <div className="flex flex-wrap items-center justify-between text-[8px] text-stone-600 px-1 pt-1 border-t border-stone-200">
+                                              <span>
+                                                Data Masuk: <strong>{activeSubs.length}</strong> dari {displayedJuris.length} Dewan Juri
+                                              </span>
+                                              {activeSubs.length > 0 && (
+                                                <span className="font-mono font-semibold text-stone-700">
+                                                  Rata-rata: {(critTotalAkumulasi / activeSubs.length).toFixed(2)} Poin
                                                 </span>
                                               )}
                                             </div>
-
-                                            {/* Rincian per juri jika akumulasi */}
-                                            {isAkumulasiBlangko && activeSubs.length > 0 && (
-                                              <div className="flex flex-wrap items-center gap-1.5 text-[8px] text-stone-600 pt-1 border-t border-stone-200">
-                                                <span className="font-semibold text-stone-700">Status Juri:</span>
-                                                {activeSubs.map((s, sIdx) => {
-                                                  const val = s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai ?? 0;
-                                                  return (
-                                                    <span
-                                                      key={s.id || sIdx}
-                                                      className="px-1.5 py-0.5 rounded bg-stone-100 border border-stone-300 font-mono text-stone-800"
-                                                    >
-                                                      {s.juriNama ? s.juriNama.split(' ')[0] : `Juri ${sIdx + 1}`}: {val > 0 ? '✓ Lengkap' : '○ 0 Poin'}
-                                                    </span>
-                                                  );
-                                                })}
-                                              </div>
-                                            )}
                                           </div>
-                                        ) : crit.tipe === 'kelipatan' ? (
-                                          <div className="space-y-1.5">
-                                            <div className="flex flex-wrap items-center gap-1">
-                                              {Array.from(
-                                                { length: Math.min(15, Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) + 1) },
-                                                (_, i) => {
-                                                  const stepVal = i * (crit.kelipatan || 5);
-                                                  const isSelected = isAkumulasiBlangko
-                                                    ? activeSubs.some((s) => s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai === stepVal)
-                                                    : includeFilledScores && itemNilai ? itemNilai.nilai === stepVal : false;
+                                        ) : (
+                                          /* 2. BLANGKO STANDAR: KOTAK CEKLIS PENILAIAN PER JURI */
+                                          crit.tipe === 'checkbox' ? (
+                                            <div className="space-y-1.5">
+                                              <div className="flex flex-wrap items-center gap-1.5">
+                                                {scaleItems.map((boxNum) => {
+                                                  const isChecked = includeFilledScores && itemNilai ? itemNilai.nilai >= boxNum : false;
                                                   return (
                                                     <div
-                                                      key={i}
-                                                      className={`inline-flex items-center justify-center min-w-[26px] h-5 px-1.5 rounded text-[8px] font-mono border ${
-                                                        isSelected
+                                                      key={boxNum}
+                                                      className={`inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded text-[9px] font-mono border transition-all ${
+                                                        isChecked
                                                           ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
                                                           : 'bg-white border-stone-300 text-stone-600'
                                                       }`}
                                                     >
-                                                      <span className="mr-0.5 text-[7px]">{isSelected ? '●' : '○'}</span>
-                                                      <span>{stepVal}</span>
+                                                      <span className="mr-0.5 text-[8px]">{isChecked ? '☑' : '☐'}</span>
+                                                      <span>{boxNum}</span>
                                                     </div>
                                                   );
-                                                }
-                                              )}
-                                            </div>
-
-                                            {isAkumulasiBlangko && activeSubs.length > 0 && (
-                                              <div className="flex flex-wrap items-center gap-1.5 text-[8px] text-stone-600 pt-1 border-t border-stone-200">
-                                                <span className="font-semibold text-stone-700">Rincian Dewan Juri:</span>
-                                                {activeSubs.map((s, sIdx) => {
-                                                  const val = s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai ?? 0;
-                                                  return (
-                                                    <span
-                                                      key={s.id || sIdx}
-                                                      className="px-1.5 py-0.5 rounded bg-stone-100 border border-stone-300 font-mono text-stone-800"
-                                                    >
-                                                      {s.juriNama ? s.juriNama.split(' ')[0] : `Juri ${sIdx + 1}`}: <strong>{val}</strong>
-                                                    </span>
-                                                  );
                                                 })}
                                               </div>
-                                            )}
-                                          </div>
-                                        ) : (
-                                          <div className="space-y-1">
-                                            <div className="text-[9px] text-stone-600 break-words whitespace-normal [word-break:break-word]">
-                                              Penilaian Angka Bebas (Rentang 0 - {crit.nilaiMaksimal} poin)
-                                            </div>
-                                            {isAkumulasiBlangko && activeSubs.length > 0 ? (
-                                              <div className="flex flex-wrap items-center gap-1.5 text-[8px] text-stone-600 pt-1">
-                                                <span className="font-semibold text-stone-700">Rincian Dewan Juri:</span>
-                                                {activeSubs.map((s, sIdx) => {
-                                                  const val = s.nilaiKriteria?.find((k) => k.kriteriaId === crit.id)?.nilai ?? 0;
-                                                  return (
-                                                    <span
-                                                      key={s.id || sIdx}
-                                                      className="px-1.5 py-0.5 rounded bg-stone-100 border border-stone-300 font-mono text-stone-800"
-                                                    >
-                                                      {s.juriNama ? s.juriNama.split(' ')[0] : `Juri ${sIdx + 1}`}: <strong>{val}</strong>
-                                                    </span>
-                                                  );
-                                                })}
+                                              <div className="text-[8px] text-stone-500 italic mt-0.5 break-words whitespace-normal">
+                                                *Centang kotak poin sesuai capaian ({scaleItems[0]} s/d {scaleItems[scaleItems.length - 1]})
                                               </div>
-                                            ) : (
+                                            </div>
+                                          ) : crit.tipe === 'toggle' ? (
+                                            <div className="space-y-1">
+                                              <div className="flex items-center gap-2">
+                                                <div
+                                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-[9px] font-mono border ${
+                                                    includeFilledScores && itemNilai && itemNilai.nilai > 0
+                                                      ? 'bg-emerald-100 border-emerald-600 text-emerald-950 font-bold'
+                                                      : 'bg-white border-stone-300 text-stone-700'
+                                                  }`}
+                                                >
+                                                  <span className="text-[10px] font-bold">
+                                                    {includeFilledScores && itemNilai && itemNilai.nilai > 0 ? '☑' : '☐'}
+                                                  </span>
+                                                  <span>
+                                                    Gerakan Sempurna / Terpenuhi (+{crit.bobotNilai || crit.nilaiMaksimal} Poin)
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ) : crit.tipe === 'kelipatan' ? (
+                                            <div className="space-y-1">
+                                              <div className="flex flex-wrap items-center gap-1">
+                                                {Array.from(
+                                                  { length: Math.min(15, Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) + 1) },
+                                                  (_, i) => {
+                                                    const stepVal = i * (crit.kelipatan || 5);
+                                                    const isSelected = includeFilledScores && itemNilai ? itemNilai.nilai === stepVal : false;
+                                                    return (
+                                                      <div
+                                                        key={i}
+                                                        className={`inline-flex items-center justify-center min-w-[26px] h-5 px-1.5 rounded text-[8px] font-mono border ${
+                                                          isSelected
+                                                            ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
+                                                            : 'bg-white border-stone-300 text-stone-600'
+                                                        }`}
+                                                      >
+                                                        <span className="mr-0.5 text-[7px]">{isSelected ? '●' : '○'}</span>
+                                                        <span>{stepVal}</span>
+                                                      </div>
+                                                    );
+                                                  }
+                                                )}
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <div className="space-y-1">
                                               <div className="border border-dashed border-stone-300 rounded p-1.5 bg-stone-50/50 text-center">
                                                 <span className="text-[9px] text-stone-500">Skor Dicapai: </span>
                                                 <span className="font-mono font-bold text-stone-900">
                                                   {includeFilledScores && itemNilai ? itemNilai.nilai : '____'}
                                                 </span>
                                               </div>
-                                            )}
-                                          </div>
+                                            </div>
+                                          )
                                         )}
                                       </td>
 
-                                      {/* Kolom 4: Nilai Angka / Nilai Akumulasi (Kolom Max Poin telah dihilangkan) */}
-                                      <td className="border border-stone-300 p-2 text-center font-mono align-middle">
+                                      {/* Kolom 4: Nilai Total Akumulasi (Akumulasi) atau Nilai Angka (Standar) */}
+                                      <td className="border border-stone-300 p-2 text-center font-mono align-middle bg-stone-50/30">
                                         {isAkumulasiBlangko ? (
                                           activeSubs.length > 0 ? (
                                             <div>
                                               <span className="text-sm font-black text-stone-950">
                                                 {critTotalAkumulasi}
                                               </span>
-                                              {activeSubs.length > 1 && (
-                                                <div className="text-[8px] text-stone-500 mt-0.5 font-mono">
-                                                  (Rata-rata: {(critTotalAkumulasi / activeSubs.length).toFixed(1)})
-                                                </div>
-                                              )}
+                                              <div className="text-[8px] text-stone-500 font-semibold uppercase tracking-wider mt-0.5">
+                                                Total Poin
+                                              </div>
                                             </div>
                                           ) : (
-                                            <span className="text-stone-400">______</span>
+                                            <span className="text-stone-400">0</span>
                                           )
                                         ) : includeFilledScores && itemNilai ? (
                                           <span className="text-sm font-black text-stone-950">{itemNilai.nilai}</span>
@@ -1122,7 +1068,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                   </td>
                                   <td className="border border-stone-300 p-2 text-center font-mono text-sm font-black text-stone-950 bg-amber-50">
                                     {isAkumulasiBlangko
-                                      ? activeSubs.length > 0 ? totalAkumulasi : '______'
+                                      ? activeSubs.length > 0 ? totalAkumulasi : '0'
                                       : includeFilledScores && specificSub ? specificSub.totalNilai : '______'}
                                   </td>
                                 </tr>
