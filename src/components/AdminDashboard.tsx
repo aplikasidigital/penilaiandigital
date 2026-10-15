@@ -237,13 +237,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     deskripsi: string;
     tipe: 'checkbox' | 'number' | 'toggle' | 'kelipatan';
     nilaiMaksimal: number;
+    nilaiMin?: number;
+    customScaleText?: string;
+    skalaNilai?: number[];
     kelipatan?: number;
     bobotNilai?: number;
   }>({
     nama: '',
     deskripsi: '',
     tipe: 'checkbox',
-    nilaiMaksimal: 10,
+    nilaiMaksimal: 6,
+    nilaiMin: 1,
+    customScaleText: '1, 2, 3, 4, 5, 6',
+    skalaNilai: [1, 2, 3, 4, 5, 6],
     kelipatan: 5,
     bobotNilai: 10,
   });
@@ -563,7 +569,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       nama: '',
       deskripsi: '',
       tipe: 'checkbox',
-      nilaiMaksimal: 10,
+      nilaiMaksimal: 6,
+      nilaiMin: 1,
+      customScaleText: '1, 2, 3, 4, 5, 6',
+      skalaNilai: [1, 2, 3, 4, 5, 6],
       kelipatan: 5,
       bobotNilai: 10,
     });
@@ -574,12 +583,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     soundService.playClick();
     setTargetMlForKriteria(mlId);
     setEditingKriteria(crit);
+    const existingScale = crit.skalaNilai && crit.skalaNilai.length > 0
+      ? crit.skalaNilai
+      : Array.from({ length: crit.nilaiMaksimal || 6 }, (_, i) => (crit.nilaiMin || 1) + i);
+
     setKriteriaFormData({
       id: crit.id,
       nama: crit.nama,
       deskripsi: crit.deskripsi,
       tipe: crit.tipe || 'checkbox',
-      nilaiMaksimal: crit.nilaiMaksimal || 10,
+      nilaiMaksimal: crit.nilaiMaksimal || 6,
+      nilaiMin: crit.nilaiMin || 1,
+      skalaNilai: existingScale,
+      customScaleText: existingScale.join(', '),
       kelipatan: crit.kelipatan || 5,
       bobotNilai: crit.bobotNilai || crit.nilaiMaksimal || 10,
     });
@@ -598,9 +614,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const targetMl = allMl.find(m => m.id === targetMlForKriteria);
     if (!targetMl) return;
 
-    const maxVal = kriteriaFormData.tipe === 'toggle'
-      ? (Number(kriteriaFormData.bobotNilai) || 10)
-      : (Number(kriteriaFormData.nilaiMaksimal) || 10);
+    let minVal = Number(kriteriaFormData.nilaiMin) || 1;
+    let maxVal = Number(kriteriaFormData.nilaiMaksimal) || 10;
+    let skalaNilaiVal: number[] | undefined = undefined;
+
+    if (kriteriaFormData.tipe === 'checkbox') {
+      if (kriteriaFormData.customScaleText && kriteriaFormData.customScaleText.trim()) {
+        const parsed = kriteriaFormData.customScaleText
+          .split(/[,;\s]+/)
+          .map(s => parseInt(s.trim()))
+          .filter(n => !isNaN(n));
+        if (parsed.length > 0) {
+          skalaNilaiVal = parsed;
+          minVal = Math.min(...parsed);
+          maxVal = Math.max(...parsed);
+        }
+      }
+      if (!skalaNilaiVal || skalaNilaiVal.length === 0) {
+        if (maxVal < minVal) maxVal = minVal;
+        skalaNilaiVal = Array.from({ length: maxVal - minVal + 1 }, (_, i) => minVal + i);
+      }
+    } else if (kriteriaFormData.tipe === 'toggle') {
+      maxVal = Number(kriteriaFormData.bobotNilai) || 10;
+    }
+
     const kelipatanVal = kriteriaFormData.tipe === 'kelipatan'
       ? Math.max(1, Number(kriteriaFormData.kelipatan) || 5)
       : undefined;
@@ -616,7 +653,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               nama: kriteriaFormData.nama.trim(),
               deskripsi: kriteriaFormData.deskripsi.trim(),
               tipe: kriteriaFormData.tipe,
+              nilaiMin: minVal,
               nilaiMaksimal: maxVal,
+              skalaNilai: skalaNilaiVal,
               kelipatan: kelipatanVal,
               bobotNilai: bobotVal,
             }
@@ -630,7 +669,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         nama: kriteriaFormData.nama.trim(),
         deskripsi: kriteriaFormData.deskripsi.trim(),
         tipe: kriteriaFormData.tipe,
+        nilaiMin: minVal,
         nilaiMaksimal: maxVal,
+        skalaNilai: skalaNilaiVal,
         kelipatan: kelipatanVal,
         bobotNilai: bobotVal,
       };
@@ -2064,7 +2105,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-bold text-stone-200 break-words [word-break:break-word]">{cIdx + 1}. {crit.nama}</span>
                                 <span className="text-amber-400 font-mono text-[11px] bg-stone-900 px-2 py-0.5 rounded border border-stone-800 break-words">
-                                  {crit.tipe === 'checkbox' && `Kotak Ceklis Dinamis • Max: ${crit.nilaiMaksimal}`}
+                                  {crit.tipe === 'checkbox' && `Kotak Ceklis Bernomor (${(crit.skalaNilai && crit.skalaNilai.length > 0 ? crit.skalaNilai : Array.from({ length: crit.nilaiMaksimal }, (_, i) => (crit.nilaiMin || 1) + i)).join(', ')}) • Max: ${crit.nilaiMaksimal}`}
                                   {crit.tipe === 'toggle' && `Ceklis / Toggle Satuan PBB • Bobot: ${crit.bobotNilai || crit.nilaiMaksimal} Poin`}
                                   {crit.tipe === 'kelipatan' && `Angka Kelipatan ${crit.kelipatan || 5} Poin • Max: ${crit.nilaiMaksimal}`}
                                   {crit.tipe === 'number' && `Input Angka Bebas • Max: ${crit.nilaiMaksimal}`}
@@ -2080,15 +2121,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               {crit.tipe === 'checkbox' && (
                                 <div className="mt-2 pt-1.5 border-t border-stone-900">
                                   <span className="text-[10px] text-stone-400 block mb-1">
-                                    Daftar Kotak Ceklis ({crit.nilaiMaksimal} Kotak):
+                                    Kotak Ceklis Bernomor Dinamis ({crit.skalaNilai && crit.skalaNilai.length > 0 ? crit.skalaNilai.join(', ') : `1 s/d ${crit.nilaiMaksimal}`}):
                                   </span>
                                   <div className="flex flex-wrap gap-1 items-center max-w-full break-words [overflow-wrap:anywhere]">
-                                    {Array.from({ length: crit.nilaiMaksimal }, (_, i) => i + 1).map((boxNum) => (
+                                    {(crit.skalaNilai && crit.skalaNilai.length > 0
+                                      ? crit.skalaNilai
+                                      : Array.from({ length: crit.nilaiMaksimal }, (_, i) => (crit.nilaiMin || 1) + i)
+                                    ).map((boxNum) => (
                                       <span
                                         key={boxNum}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-stone-900 border border-stone-800 rounded text-[10px] font-mono text-stone-300"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-stone-900 border border-amber-500/30 rounded text-[10px] font-mono text-amber-300 font-bold"
                                       >
-                                        <span className="text-stone-500 font-bold">☐</span>
+                                        <span className="text-stone-500">☐</span>
                                         <span>{boxNum}</span>
                                       </span>
                                     ))}
@@ -2792,13 +2836,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   onClick={() => {
                     soundService.playClick();
+                    setPrintMode('blangko_akumulasi_dewan_juri');
+                    setPrintModalOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 text-stone-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow cursor-pointer"
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  Akumulasi Dewan Juri (A4)
+                </button>
+                <button
+                  onClick={() => {
+                    soundService.playClick();
                     setPrintMode('blangko_semua_peserta_per_lomba');
                     setPrintModalOpen(true);
                   }}
                   className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-stone-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  Cetak Blangko Juri (A4)
+                  Cetak Blangko Juri
                 </button>
                 <button
                   onClick={() => {
@@ -2999,6 +3054,79 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="p-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-stone-950 rounded-xl text-xs font-bold cursor-pointer text-center shadow"
                   >
                     Semua Peserta Semua Lomba (1 Peserta = 1 Hal)
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 4: Blangko Akumulasi Nilai Dewan Juri (1 Format Lembar Tunggal & Seluruh Dewan Juri) */}
+              <div className="bg-gradient-to-b from-stone-900 to-stone-950 border border-emerald-500/50 rounded-xl p-5 space-y-3 flex flex-col justify-between md:col-span-2 shadow-xl">
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-bold text-sm text-emerald-300 flex items-center gap-2">
+                      <Award className="w-4 h-4 text-emerald-400" />
+                      4. Blangko Akumulasi Nilai Dewan Juri (1 Format Blangko Tunggal & Tanda Tangan Seluruh Juri)
+                    </h3>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/50 px-2.5 py-0.5 rounded-full font-bold">
+                      Format Blangko Tunggal Resmi
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-300 mt-1">
+                    Menggabungkan dan menampilkan rekapitulasi penilaian akumulasi dari semua dewan juri ke dalam <strong>1 (satu) format blangko penilaian tunggal</strong> per masing-masing peserta. Pada bagian bawah blangko, disediakan area tanda tangan resmi yang mengakomodasi <strong>seluruh dewan juri</strong> yang bertugas.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">Pilih Mata Lomba:</label>
+                      <select
+                        value={printSelectedMl}
+                        onChange={e => setPrintSelectedMl(e.target.value)}
+                        className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-white"
+                      >
+                        {mataLombaList.map(ml => (
+                          <option key={ml.id} value={ml.id}>
+                            {ml.kode} - {ml.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">Peserta (Opsional):</label>
+                      <select
+                        value={printSelectedPst}
+                        onChange={e => setPrintSelectedPst(e.target.value)}
+                        className="w-full bg-stone-950 border border-stone-700 rounded-lg p-2 text-xs text-white"
+                      >
+                        <option value="">-- Semua Peserta (1 Lembar per Peserta) --</option>
+                        {pesertaList.filter(p => !printSelectedMl || p.mataLombaId === printSelectedMl || (Array.isArray(p.mataLombaIds) && p.mataLombaIds.includes(printSelectedMl))).map(pst => (
+                          <option key={pst.id} value={pst.id}>
+                            {pst.nomorDada} - {pst.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">Pengesahan Dokumen:</label>
+                      <div className="p-2 bg-stone-950 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 font-mono flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>Tanda Tangan Seluruh Dewan Juri</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      soundService.playClick();
+                      setPrintMode('blangko_akumulasi_dewan_juri');
+                      setPrintModalOpen(true);
+                    }}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 text-stone-950 font-bold rounded-xl text-xs shadow cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Buka & Download Blangko Akumulasi Dewan Juri (1 Format Tunggal)
                   </button>
                 </div>
               </div>
@@ -4063,24 +4191,175 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {/* Pengaturan Khusus: Tipe Ceklis Dinamis (1 s/d N) */}
+              {/* Pengaturan Khusus: Tipe Ceklis Bernomor Kustom / Skala Nilai */}
               {kriteriaFormData.tipe === 'checkbox' && (
-                <div>
-                  <label className="text-stone-300 block mb-1">
-                    Nilai Maksimal (Jumlah Kotak Ceklis Otomatis):
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    required
-                    value={kriteriaFormData.nilaiMaksimal}
-                    onChange={e => setKriteriaFormData({ ...kriteriaFormData, nilaiMaksimal: parseInt(e.target.value) || 10 })}
-                    className="w-full p-2 bg-stone-950 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold"
-                  />
-                  <span className="text-[10px] text-stone-400 mt-1 block">
-                    *Jumlah kotak centang pada form penilaian juri akan otomatis berjejer 1 s/d angka ini.
-                  </span>
+                <div className="bg-stone-950 p-3.5 rounded-xl border border-amber-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-stone-200 block font-bold text-xs">
+                      Pengaturan Checkbox Bernomor / Skala Angka:
+                    </label>
+                    <span className="text-[10px] text-amber-400 font-mono font-semibold">
+                      Skala Dinamis
+                    </span>
+                  </div>
+
+                  {/* Preset Pilihan Skala Cepat */}
+                  <div>
+                    <span className="text-[11px] text-stone-400 block mb-1.5">
+                      Pilihan Preset Skala Cepat:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: '1 s/d 5', min: 1, max: 5 },
+                        { label: '1 s/d 6 (PBB)', min: 1, max: 6 },
+                        { label: '1 s/d 8', min: 1, max: 8 },
+                        { label: '1 s/d 10', min: 1, max: 10 },
+                        { label: '1 s/d 12', min: 1, max: 12 },
+                        { label: '1 s/d 20', min: 1, max: 20 },
+                      ].map((preset) => {
+                        const isPresetActive =
+                          kriteriaFormData.nilaiMin === preset.min &&
+                          kriteriaFormData.nilaiMaksimal === preset.max;
+                        return (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => {
+                              const scale = Array.from(
+                                { length: preset.max - preset.min + 1 },
+                                (_, i) => preset.min + i
+                              );
+                              setKriteriaFormData({
+                                ...kriteriaFormData,
+                                nilaiMin: preset.min,
+                                nilaiMaksimal: preset.max,
+                                skalaNilai: scale,
+                                customScaleText: scale.join(', '),
+                              });
+                            }}
+                            className={`px-2 py-1 rounded text-[10px] font-mono font-medium cursor-pointer transition-all border ${
+                              isPresetActive
+                                ? 'bg-amber-500 text-stone-950 font-bold border-amber-400 shadow'
+                                : 'bg-stone-900 text-stone-300 border-stone-800 hover:bg-stone-800 hover:text-white'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Rentang Angka Mulai & Selesai */}
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">
+                        Angka Mulai (Nilai Awal):
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        required
+                        value={kriteriaFormData.nilaiMin ?? 1}
+                        onChange={(e) => {
+                          const min = parseInt(e.target.value) || 0;
+                          const max = Math.max(min, kriteriaFormData.nilaiMaksimal || 6);
+                          const scale = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+                          setKriteriaFormData({
+                            ...kriteriaFormData,
+                            nilaiMin: min,
+                            nilaiMaksimal: max,
+                            skalaNilai: scale,
+                            customScaleText: scale.join(', '),
+                          });
+                        }}
+                        className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold text-center text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] text-stone-300 block mb-1">
+                        Angka Akhir (Nilai Maksimal):
+                      </label>
+                      <input
+                        type="number"
+                        min={kriteriaFormData.nilaiMin ?? 1}
+                        max="100"
+                        required
+                        value={kriteriaFormData.nilaiMaksimal || 6}
+                        onChange={(e) => {
+                          const max = parseInt(e.target.value) || 6;
+                          const min = kriteriaFormData.nilaiMin ?? 1;
+                          const scale = Array.from(
+                            { length: Math.max(1, max - min + 1) },
+                            (_, i) => min + i
+                          );
+                          setKriteriaFormData({
+                            ...kriteriaFormData,
+                            nilaiMaksimal: max,
+                            skalaNilai: scale,
+                            customScaleText: scale.join(', '),
+                          });
+                        }}
+                        className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-amber-300 font-mono font-bold text-center text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Input Angka / Skala Kustom */}
+                  <div>
+                    <label className="text-[11px] text-stone-300 block mb-1">
+                      Daftar Urutan Angka Checkbox (Pisahkan dengan koma):
+                    </label>
+                    <input
+                      type="text"
+                      value={kriteriaFormData.customScaleText || ''}
+                      onChange={(e) => {
+                        const txt = e.target.value;
+                        const parsed = txt
+                          .split(/[,;\s]+/)
+                          .map((s) => parseInt(s.trim()))
+                          .filter((n) => !isNaN(n));
+                        setKriteriaFormData({
+                          ...kriteriaFormData,
+                          customScaleText: txt,
+                          skalaNilai: parsed.length > 0 ? parsed : undefined,
+                          nilaiMin: parsed.length > 0 ? Math.min(...parsed) : 1,
+                          nilaiMaksimal: parsed.length > 0 ? Math.max(...parsed) : 6,
+                        });
+                      }}
+                      placeholder="Contoh: 1, 2, 3, 4, 5, 6"
+                      className="w-full p-2 bg-stone-900 border border-stone-700 rounded-lg text-white font-mono text-xs"
+                    />
+                    <span className="text-[10px] text-stone-400 mt-1 block">
+                      *Admin dapat menyesuaikan angka/skala nilai secara bebas (misal: 1, 2, 3, 4, 5, 6).
+                    </span>
+                  </div>
+
+                  {/* Pratinjau Tampilan Checkbox Juri */}
+                  <div className="bg-stone-900/80 p-2.5 rounded-lg border border-stone-800">
+                    <span className="text-[10px] text-stone-400 font-semibold block mb-1.5">
+                      Pratinjau Kotak Ceklis yang Tampil pada Form Juri:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {(kriteriaFormData.skalaNilai && kriteriaFormData.skalaNilai.length > 0
+                        ? kriteriaFormData.skalaNilai
+                        : Array.from(
+                            { length: (kriteriaFormData.nilaiMaksimal || 6) - (kriteriaFormData.nilaiMin || 1) + 1 },
+                            (_, i) => (kriteriaFormData.nilaiMin || 1) + i
+                          )
+                      ).map((num) => (
+                        <span
+                          key={num}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-stone-950 border border-amber-500/40 font-mono text-[11px] font-bold text-amber-300"
+                        >
+                          <span className="text-stone-500 text-[10px]">☐</span>
+                          <span>{num}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
 

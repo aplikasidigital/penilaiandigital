@@ -227,9 +227,31 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
   // di bawahnya (1 s/d 5) secara otomatis ikut tercentang (checked).
   // Jika kotak yang sedang menjadi nilai tertinggi diklik ulang, juri dapat mengurangi 1 tingkat
   // atau memilih tingkat yang lebih rendah.
-  const handleToggleChecklist = (critId: string, index: number, maxScore: number) => {
+  const handleToggleChecklist = (critId: string, index: number, maxScore: number, customScale?: number[]) => {
     soundService.playClick();
     const current = scoresMap[critId] || { nilai: 0, checkedIndices: [] };
+
+    if (customScale && customScale.length > 0) {
+      if (current.nilai === index) {
+        // Klik ulang untuk membatalkan pilihan
+        setScoresMap(prev => ({
+          ...prev,
+          [critId]: { nilai: 0, checkedIndices: [] }
+        }));
+      } else {
+        // Ceklis sampai angka yang dipilih
+        const activeBoxes = customScale.filter(x => x <= index);
+        setScoresMap(prev => ({
+          ...prev,
+          [critId]: {
+            nilai: index,
+            checkedIndices: activeBoxes
+          }
+        }));
+      }
+      return;
+    }
+
     const currentIndices = [...(current.checkedIndices || [])].sort((a, b) => a - b);
     const maxChecked = currentIndices.length > 0 ? currentIndices[currentIndices.length - 1] : 0;
 
@@ -663,53 +685,70 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                             </div>
 
                             {/* Checklist or Number or Toggle or Kelipatan depending on criteria type */}
-                            {crit.tipe === 'checkbox' && (
-                              <div>
-                                <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 mb-1.5 gap-2">
-                                  <span>
-                                    Klik tingkat nilai (otomatis menceklis kotak 1 s/d tingkat yang dipilih):
-                                  </span>
-                                  <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSetChecklistMax(crit.id, crit.nilaiMaksimal)}
-                                      className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-semibold cursor-pointer transition-colors"
-                                      title="Centang semua kotak hingga nilai maksimal"
-                                    >
-                                      ✓ Ceklis Semua ({crit.nilaiMaksimal})
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleResetChecklist(crit.id)}
-                                      className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-[10px] cursor-pointer transition-colors"
-                                      title="Reset nilai kriteria ini ke 0"
-                                    >
-                                      Reset
-                                    </button>
+                            {crit.tipe === 'checkbox' && (() => {
+                              const scaleItems = crit.skalaNilai && crit.skalaNilai.length > 0
+                                ? crit.skalaNilai
+                                : Array.from({ length: crit.nilaiMaksimal }, (_, i) => (crit.nilaiMin || 1) + i);
+                              const maxVal = Math.max(...scaleItems);
+
+                              return (
+                                <div>
+                                  <div className="flex flex-wrap items-center justify-between text-[11px] text-stone-400 mb-1.5 gap-2">
+                                    <span>
+                                      Pilihan Checkbox Bernomor / Skala Nilai ({scaleItems.join(', ')}):
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          soundService.playClick();
+                                          setScoresMap(prev => ({
+                                            ...prev,
+                                            [crit.id]: {
+                                              nilai: maxVal,
+                                              checkedIndices: scaleItems,
+                                            },
+                                          }));
+                                        }}
+                                        className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-semibold cursor-pointer transition-colors"
+                                        title="Pilih nilai skala tertinggi"
+                                      >
+                                        ✓ Ceklis Max ({maxVal})
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleResetChecklist(crit.id)}
+                                        className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-stone-300 text-[10px] cursor-pointer transition-colors"
+                                        title="Reset nilai kriteria ini ke 0"
+                                      >
+                                        Reset
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 justify-start items-center text-left">
+                                    {scaleItems.map(boxNum => {
+                                      const isChecked = currentScore.nilai === boxNum || (currentScore.checkedIndices && currentScore.checkedIndices.includes(boxNum));
+                                      return (
+                                        <button
+                                          key={boxNum}
+                                          type="button"
+                                          onClick={() => handleToggleChecklist(crit.id, boxNum, crit.nilaiMaksimal, crit.skalaNilai)}
+                                          title={`Pilih Angka Nilai ${boxNum}`}
+                                          className={`min-w-[36px] h-9 px-2.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
+                                            isChecked
+                                              ? 'bg-amber-500 border-amber-400 text-stone-950 shadow ring-2 ring-amber-300 scale-105'
+                                              : 'bg-stone-800/80 border-stone-700 text-stone-300 hover:bg-stone-700 hover:text-white'
+                                          }`}
+                                        >
+                                          <span className="text-[10px] font-bold">{isChecked ? '✓' : '☐'}</span>
+                                          <span>{boxNum}</span>
+                                        </button>
+                                      );
+                                    })}
                                   </div>
                                 </div>
-                                <div className="flex flex-wrap gap-2 justify-start items-center text-left">
-                                  {Array.from({ length: crit.nilaiMaksimal }, (_, i) => i + 1).map(boxNum => {
-                                    const isChecked = currentScore.checkedIndices.includes(boxNum);
-                                    return (
-                                      <button
-                                        key={boxNum}
-                                        type="button"
-                                        onClick={() => handleToggleChecklist(crit.id, boxNum, crit.nilaiMaksimal)}
-                                        title={`Tingkat ${boxNum}: Klik untuk otomatis mencentang kotak 1 s/d ${boxNum}`}
-                                        className={`w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all cursor-pointer border ${
-                                          isChecked
-                                            ? 'bg-amber-500 border-amber-400 text-stone-950 shadow ring-1 ring-amber-300'
-                                            : 'bg-stone-800/80 border-stone-700 text-stone-400 hover:bg-stone-700 hover:text-white'
-                                        }`}
-                                      >
-                                        {isChecked ? '✓' : boxNum}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
+                              );
+                            })()}
 
                             {/* Tipe Toggle / Ceklis Satuan PBB dengan Bobot */}
                             {crit.tipe === 'toggle' && (

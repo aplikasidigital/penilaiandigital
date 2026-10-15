@@ -49,6 +49,8 @@ export interface KriteriaPenilaian {
   deskripsi: string;
   tipe: 'checkbox' | 'number' | 'toggle' | 'kelipatan';
   nilaiMaksimal: number;
+  nilaiMin?: number; // Nilai skala awal (default 1)
+  skalaNilai?: number[]; // Pilihan nilai checkbox/skala kustom (misal: 1, 2, 3, 4, 5, 6)
   kelipatan?: number; // Nilai kelipatan (misal 5, 10, 20). Digunakan saat tipe === 'kelipatan'
   bobotNilai?: number; // Nilai poin jika toggle/ceklis aktif (default = nilaiMaksimal)
   kategoriGerakan?: string; // Kategori opsional untuk PBB (di tempat, berjalan, formasi, dsb)
