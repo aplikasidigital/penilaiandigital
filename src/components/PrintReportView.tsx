@@ -847,10 +847,10 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                   <th className="border border-stone-300 p-1 w-7 sm:w-8 text-center break-words [word-break:break-word]">
                                     No
                                   </th>
-                                  <th className="border border-stone-300 p-1.5 text-left w-[26%] break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-1.5 text-left w-[24%] break-words [word-break:break-word]">
                                     Kriteria Penilaian
                                   </th>
-                                  <th className="border border-stone-300 p-1.5 text-left w-[64%] break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-1.5 text-left w-[66%] break-words [word-break:break-word]">
                                     {isAkumulasiBlangko ? 'Rincian Hasil Penilaian Semua Dewan Juri' : 'Kotak Ceklis Penilaian (Skor)'}
                                   </th>
                                   <th className="border border-stone-300 p-1 w-14 sm:w-16 text-center break-words [word-break:break-word] text-[9px] leading-tight">
@@ -949,83 +949,95 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                             </div>
                                           </div>
                                         ) : (
-                                          /* 2. BLANGKO STANDAR: KOTAK CEKLIS PENILAIAN PER JURI */
-                                          crit.tipe === 'checkbox' ? (
-                                            <div className="space-y-1.5">
-                                              <div className="flex flex-wrap items-center gap-1.5">
-                                                {scaleItems.map((boxNum) => {
-                                                  const isChecked = includeFilledScores && itemNilai ? itemNilai.nilai >= boxNum : false;
-                                                  return (
-                                                    <div
-                                                      key={boxNum}
-                                                      className={`inline-flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded text-[9px] font-mono border transition-all ${
-                                                        isChecked
-                                                          ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
-                                                          : 'bg-white border-stone-300 text-stone-600'
-                                                      }`}
-                                                    >
-                                                      <span className="mr-0.5 text-[8px]">{isChecked ? '☑' : '☐'}</span>
-                                                      <span>{boxNum}</span>
-                                                    </div>
-                                                  );
-                                                })}
+                                          /* 2. BLANGKO STANDAR: KOTAK CEKLIS PENILAIAN PER JURI (MAKSIMAL 15 CEKLIS PER BARIS & BEBAS DESKRIPSI) */
+                                          (!crit.tipe || crit.tipe === 'checkbox') ? (() => {
+                                            // Susun kotak ceklis maksimal 15 per baris (wrap otomatis ke baris berikutnya jika > 15)
+                                            const rowsOf15: number[][] = [];
+                                            for (let i = 0; i < scaleItems.length; i += 15) {
+                                              rowsOf15.push(scaleItems.slice(i, i + 15));
+                                            }
+
+                                            return (
+                                              <div className="space-y-1">
+                                                {rowsOf15.map((rowChunk, rIdx) => (
+                                                  <div key={rIdx} className="flex flex-nowrap items-center gap-0.5 sm:gap-1 overflow-x-visible">
+                                                    {rowChunk.map((boxNum) => {
+                                                      // Centang kotak poin hanya disesuaikan dengan capaian yang ada
+                                                      const isChecked = includeFilledScores && itemNilai ? itemNilai.nilai === boxNum : false;
+                                                      return (
+                                                        <div
+                                                          key={boxNum}
+                                                          className={`inline-flex items-center justify-center min-w-[19px] sm:min-w-[21px] h-4.5 sm:h-5 px-0.5 rounded-xs text-[7.5px] sm:text-[8px] font-mono border shrink-0 transition-all ${
+                                                            isChecked
+                                                              ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
+                                                              : 'bg-white border-stone-300 text-stone-600'
+                                                          }`}
+                                                        >
+                                                          <span className="mr-0.5 text-[7.5px]">{isChecked ? '☑' : '☐'}</span>
+                                                          <span>{boxNum}</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                ))}
                                               </div>
-                                              <div className="text-[8px] text-stone-500 italic mt-0.5 break-words whitespace-normal">
-                                                *Centang kotak poin sesuai capaian ({scaleItems[0]} s/d {scaleItems[scaleItems.length - 1]})
-                                              </div>
-                                            </div>
-                                          ) : crit.tipe === 'toggle' ? (
-                                            <div className="space-y-1">
-                                              <div className="flex items-center gap-2">
-                                                <div
-                                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-[9px] font-mono border ${
-                                                    includeFilledScores && itemNilai && itemNilai.nilai > 0
-                                                      ? 'bg-emerald-100 border-emerald-600 text-emerald-950 font-bold'
-                                                      : 'bg-white border-stone-300 text-stone-700'
-                                                  }`}
-                                                >
-                                                  <span className="text-[10px] font-bold">
-                                                    {includeFilledScores && itemNilai && itemNilai.nilai > 0 ? '☑' : '☐'}
-                                                  </span>
-                                                  <span>
-                                                    Gerakan Sempurna / Terpenuhi (+{crit.bobotNilai || crit.nilaiMaksimal} Poin)
-                                                  </span>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          ) : crit.tipe === 'kelipatan' ? (
-                                            <div className="space-y-1">
-                                              <div className="flex flex-wrap items-center gap-1">
-                                                {Array.from(
-                                                  { length: Math.min(15, Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) + 1) },
-                                                  (_, i) => {
-                                                    const stepVal = i * (crit.kelipatan || 5);
-                                                    const isSelected = includeFilledScores && itemNilai ? itemNilai.nilai === stepVal : false;
-                                                    return (
-                                                      <div
-                                                        key={i}
-                                                        className={`inline-flex items-center justify-center min-w-[26px] h-5 px-1.5 rounded text-[8px] font-mono border ${
-                                                          isSelected
-                                                            ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
-                                                            : 'bg-white border-stone-300 text-stone-600'
-                                                        }`}
-                                                      >
-                                                        <span className="mr-0.5 text-[7px]">{isSelected ? '●' : '○'}</span>
-                                                        <span>{stepVal}</span>
-                                                      </div>
-                                                    );
-                                                  }
-                                                )}
-                                              </div>
-                                            </div>
-                                          ) : (
-                                            <div className="space-y-1">
-                                              <div className="border border-dashed border-stone-300 rounded p-1.5 bg-stone-50/50 text-center">
-                                                <span className="text-[9px] text-stone-500">Skor Dicapai: </span>
-                                                <span className="font-mono font-bold text-stone-900">
-                                                  {includeFilledScores && itemNilai ? itemNilai.nilai : '____'}
+                                            );
+                                          })() : crit.tipe === 'toggle' ? (
+                                            /* Tipe Toggle: HANYA tampilkan kotak capaian nilai bersih tanpa deskripsi tambahan */
+                                            <div className="flex items-center gap-1">
+                                              <div
+                                                className={`inline-flex items-center justify-center min-w-[19px] sm:min-w-[21px] h-4.5 sm:h-5 px-1.5 rounded-xs text-[7.5px] sm:text-[8px] font-mono border transition-all ${
+                                                  includeFilledScores && itemNilai && itemNilai.nilai > 0
+                                                    ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
+                                                    : 'bg-white border-stone-300 text-stone-600'
+                                                }`}
+                                              >
+                                                <span className="mr-0.5 text-[7.5px]">
+                                                  {includeFilledScores && itemNilai && itemNilai.nilai > 0 ? '☑' : '☐'}
                                                 </span>
+                                                <span>{crit.bobotNilai || crit.nilaiMaksimal}</span>
                                               </div>
+                                            </div>
+                                          ) : crit.tipe === 'kelipatan' ? (() => {
+                                            // Susun kelipatan maksimal 15 per baris
+                                            const kelipatanItems = Array.from(
+                                              { length: Math.floor(crit.nilaiMaksimal / (crit.kelipatan || 5)) + 1 },
+                                              (_, i) => i * (crit.kelipatan || 5)
+                                            );
+                                            const kelipatanRowsOf15: number[][] = [];
+                                            for (let i = 0; i < kelipatanItems.length; i += 15) {
+                                              kelipatanRowsOf15.push(kelipatanItems.slice(i, i + 15));
+                                            }
+
+                                            return (
+                                              <div className="space-y-1">
+                                                {kelipatanRowsOf15.map((rowChunk, rIdx) => (
+                                                  <div key={rIdx} className="flex flex-nowrap items-center gap-0.5 sm:gap-1 overflow-x-visible">
+                                                    {rowChunk.map((stepVal) => {
+                                                      const isSelected = includeFilledScores && itemNilai ? itemNilai.nilai === stepVal : false;
+                                                      return (
+                                                        <div
+                                                          key={stepVal}
+                                                          className={`inline-flex items-center justify-center min-w-[19px] sm:min-w-[21px] h-4.5 sm:h-5 px-0.5 rounded-xs text-[7.5px] sm:text-[8px] font-mono border shrink-0 ${
+                                                            isSelected
+                                                              ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
+                                                              : 'bg-white border-stone-300 text-stone-600'
+                                                          }`}
+                                                        >
+                                                          <span className="mr-0.5 text-[7.5px]">{isSelected ? '☑' : '☐'}</span>
+                                                          <span>{stepVal}</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            );
+                                          })() : (
+                                            <div className="border border-dashed border-stone-300 rounded p-1.5 bg-stone-50/50 text-center">
+                                              <span className="font-mono font-bold text-stone-900 text-xs">
+                                                {includeFilledScores && itemNilai ? itemNilai.nilai : '____'}
+                                              </span>
                                             </div>
                                           )
                                         )}

@@ -2123,20 +2123,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <span className="text-[10px] text-stone-400 block mb-1">
                                     Kotak Ceklis Bernomor Dinamis ({crit.skalaNilai && crit.skalaNilai.length > 0 ? crit.skalaNilai.join(', ') : `1 s/d ${crit.nilaiMaksimal}`}):
                                   </span>
-                                  <div className="flex flex-wrap gap-1 items-center max-w-full break-words [overflow-wrap:anywhere]">
-                                    {(crit.skalaNilai && crit.skalaNilai.length > 0
+                                  {(() => {
+                                    const scaleList = (crit.skalaNilai && crit.skalaNilai.length > 0
                                       ? crit.skalaNilai
-                                      : Array.from({ length: crit.nilaiMaksimal }, (_, i) => (crit.nilaiMin || 1) + i)
-                                    ).map((boxNum) => (
-                                      <span
-                                        key={boxNum}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-stone-900 border border-amber-500/30 rounded text-[10px] font-mono text-amber-300 font-bold"
-                                      >
-                                        <span className="text-stone-500">☐</span>
-                                        <span>{boxNum}</span>
-                                      </span>
-                                    ))}
-                                  </div>
+                                      : Array.from({ length: crit.nilaiMaksimal }, (_, i) => (crit.nilaiMin || 1) + i));
+                                    const rowsOf15: number[][] = [];
+                                    for (let i = 0; i < scaleList.length; i += 15) {
+                                      rowsOf15.push(scaleList.slice(i, i + 15));
+                                    }
+                                    return (
+                                      <div className="space-y-1">
+                                        {rowsOf15.map((rowChunk, rIdx) => (
+                                          <div key={rIdx} className="flex flex-wrap gap-1 items-center max-w-full break-words [overflow-wrap:anywhere]">
+                                            {rowChunk.map((boxNum) => (
+                                              <span
+                                                key={boxNum}
+                                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-stone-900 border border-amber-500/30 rounded text-[10px] font-mono text-amber-300 font-bold"
+                                              >
+                                                <span className="text-stone-500">☐</span>
+                                                <span>{boxNum}</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               )}
 
@@ -4342,23 +4354,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <span className="text-[10px] text-stone-400 font-semibold block mb-1.5">
                       Pratinjau Kotak Ceklis yang Tampil pada Form Juri:
                     </span>
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      {(kriteriaFormData.skalaNilai && kriteriaFormData.skalaNilai.length > 0
+                    {(() => {
+                      const previewScale = (kriteriaFormData.skalaNilai && kriteriaFormData.skalaNilai.length > 0
                         ? kriteriaFormData.skalaNilai
                         : Array.from(
                             { length: (kriteriaFormData.nilaiMaksimal || 6) - (kriteriaFormData.nilaiMin || 1) + 1 },
                             (_, i) => (kriteriaFormData.nilaiMin || 1) + i
-                          )
-                      ).map((num) => (
-                        <span
-                          key={num}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-stone-950 border border-amber-500/40 font-mono text-[11px] font-bold text-amber-300"
-                        >
-                          <span className="text-stone-500 text-[10px]">☐</span>
-                          <span>{num}</span>
-                        </span>
-                      ))}
-                    </div>
+                          ));
+                      const rowsOf15: number[][] = [];
+                      for (let i = 0; i < previewScale.length; i += 15) {
+                        rowsOf15.push(previewScale.slice(i, i + 15));
+                      }
+                      return (
+                        <div className="space-y-1.5">
+                          {rowsOf15.map((rowChunk, rIdx) => (
+                            <div key={rIdx} className="flex flex-wrap gap-1.5 items-center">
+                              {rowChunk.map((num) => (
+                                <span
+                                  key={num}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-stone-950 border border-amber-500/40 font-mono text-[11px] font-bold text-amber-300"
+                                >
+                                  <span className="text-stone-500 text-[10px]">☐</span>
+                                  <span>{num}</span>
+                                </span>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

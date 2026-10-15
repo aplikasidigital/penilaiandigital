@@ -725,27 +725,39 @@ export const JuriDashboard: React.FC<JuriDashboardProps> = ({ currentUser, onLog
                                       </button>
                                     </div>
                                   </div>
-                                  <div className="flex flex-wrap gap-2 justify-start items-center text-left">
-                                    {scaleItems.map(boxNum => {
-                                      const isChecked = currentScore.nilai === boxNum || (currentScore.checkedIndices && currentScore.checkedIndices.includes(boxNum));
-                                      return (
-                                        <button
-                                          key={boxNum}
-                                          type="button"
-                                          onClick={() => handleToggleChecklist(crit.id, boxNum, crit.nilaiMaksimal, crit.skalaNilai)}
-                                          title={`Pilih Angka Nilai ${boxNum}`}
-                                          className={`min-w-[36px] h-9 px-2.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
-                                            isChecked
-                                              ? 'bg-amber-500 border-amber-400 text-stone-950 shadow ring-2 ring-amber-300 scale-105'
-                                              : 'bg-stone-800/80 border-stone-700 text-stone-300 hover:bg-stone-700 hover:text-white'
-                                          }`}
-                                        >
-                                          <span className="text-[10px] font-bold">{isChecked ? '✓' : '☐'}</span>
-                                          <span>{boxNum}</span>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
+                                  {(() => {
+                                    const rowsOf15: number[][] = [];
+                                    for (let i = 0; i < scaleItems.length; i += 15) {
+                                      rowsOf15.push(scaleItems.slice(i, i + 15));
+                                    }
+                                    return (
+                                      <div className="space-y-2">
+                                        {rowsOf15.map((rowChunk, rIdx) => (
+                                          <div key={rIdx} className="flex flex-wrap gap-2 justify-start items-center text-left">
+                                            {rowChunk.map(boxNum => {
+                                              const isChecked = currentScore.nilai === boxNum || (currentScore.checkedIndices && currentScore.checkedIndices.includes(boxNum));
+                                              return (
+                                                <button
+                                                  key={boxNum}
+                                                  type="button"
+                                                  onClick={() => handleToggleChecklist(crit.id, boxNum, crit.nilaiMaksimal, crit.skalaNilai)}
+                                                  title={`Pilih Angka Nilai ${boxNum}`}
+                                                  className={`min-w-[36px] h-9 px-2.5 rounded-xl font-mono text-xs font-bold transition-all cursor-pointer border flex items-center justify-center gap-1.5 ${
+                                                    isChecked
+                                                      ? 'bg-amber-500 border-amber-400 text-stone-950 shadow ring-2 ring-amber-300 scale-105'
+                                                      : 'bg-stone-800/80 border-stone-700 text-stone-300 hover:bg-stone-700 hover:text-white'
+                                                  }`}
+                                                >
+                                                  <span className="text-[10px] font-bold">{isChecked ? '✓' : '☐'}</span>
+                                                  <span>{boxNum}</span>
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })()}
