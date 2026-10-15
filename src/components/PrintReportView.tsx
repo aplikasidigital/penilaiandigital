@@ -844,17 +844,17 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                             <table className="w-full border-collapse border border-stone-300 text-[10px] mb-3 table-fixed">
                               <thead>
                                 <tr className="bg-stone-100 font-semibold text-stone-800">
-                                  <th className="border border-stone-300 p-1.5 w-8 sm:w-10 text-center break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-1 w-7 sm:w-8 text-center break-words [word-break:break-word]">
                                     No
                                   </th>
-                                  <th className="border border-stone-300 p-1.5 text-left w-[32%] break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-1.5 text-left w-[26%] break-words [word-break:break-word]">
                                     Kriteria Penilaian
                                   </th>
-                                  <th className="border border-stone-300 p-1.5 text-left w-[52%] break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-1.5 text-left w-[64%] break-words [word-break:break-word]">
                                     {isAkumulasiBlangko ? 'Rincian Hasil Penilaian Semua Dewan Juri' : 'Kotak Ceklis Penilaian (Skor)'}
                                   </th>
-                                  <th className="border border-stone-300 p-1.5 w-24 sm:w-28 text-center break-words [word-break:break-word]">
-                                    {isAkumulasiBlangko ? 'Nilai Total Akumulasi' : 'Nilai Angka'}
+                                  <th className="border border-stone-300 p-1 w-14 sm:w-16 text-center break-words [word-break:break-word] text-[9px] leading-tight">
+                                    {isAkumulasiBlangko ? 'Nilai Total' : 'Nilai Angka'}
                                   </th>
                                 </tr>
                               </thead>
@@ -1031,25 +1031,22 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                         )}
                                       </td>
 
-                                      {/* Kolom 4: Nilai Total Akumulasi (Akumulasi) atau Nilai Angka (Standar) */}
-                                      <td className="border border-stone-300 p-2 text-center font-mono align-middle bg-stone-50/30">
+                                       {/* Kolom 4: Nilai Total Akumulasi (Akumulasi) atau Nilai Angka (Standar) - Kompak & Minimalis */}
+                                      <td className="border border-stone-300 p-1 text-center font-mono align-middle bg-stone-50/30">
                                         {isAkumulasiBlangko ? (
                                           activeSubs.length > 0 ? (
                                             <div>
-                                              <span className="text-sm font-black text-stone-950">
+                                              <span className="text-xs sm:text-sm font-black text-stone-950">
                                                 {critTotalAkumulasi}
                                               </span>
-                                              <div className="text-[8px] text-stone-500 font-semibold uppercase tracking-wider mt-0.5">
-                                                Total Poin
-                                              </div>
                                             </div>
                                           ) : (
-                                            <span className="text-stone-400">0</span>
+                                            <span className="text-stone-400 font-bold text-xs">0</span>
                                           )
                                         ) : includeFilledScores && itemNilai ? (
-                                          <span className="text-sm font-black text-stone-950">{itemNilai.nilai}</span>
+                                          <span className="text-xs sm:text-sm font-black text-stone-950">{itemNilai.nilai}</span>
                                         ) : (
-                                          <span className="text-stone-400">______</span>
+                                          <span className="text-stone-400 text-xs">____</span>
                                         )}
                                       </td>
                                     </tr>
@@ -1058,18 +1055,18 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
                                 {/* Baris Rekapitulasi Total Poin (Disesuaikan tanpa Kolom Max Poin) */}
                                 <tr className="bg-stone-100 font-bold text-stone-900">
-                                  <td colSpan={2} className="border border-stone-300 p-2 text-right break-words [word-break:break-word]">
-                                    {isAkumulasiBlangko ? 'Total Nilai Akumulasi Gabungan:' : 'Total Poin Penilaian:'}
+                                  <td colSpan={2} className="border border-stone-300 p-1.5 text-right break-words [word-break:break-word]">
+                                    {isAkumulasiBlangko ? 'Total Akumulasi:' : 'Total Poin:'}
                                   </td>
-                                  <td className="border border-stone-300 p-2 text-left text-[9px] text-stone-500 italic">
+                                  <td className="border border-stone-300 p-1.5 text-left text-[9px] text-stone-500 italic">
                                     {isAkumulasiBlangko
                                       ? `*Hasil rekapitulasi nilai akumulasi sah seluruh dewan juri (${activeSubs.length} juri bertugas)`
                                       : '*Total akumulasi perolehan poin kriteria'}
                                   </td>
-                                  <td className="border border-stone-300 p-2 text-center font-mono text-sm font-black text-stone-950 bg-amber-50">
+                                  <td className="border border-stone-300 p-1 text-center font-mono text-xs sm:text-sm font-black text-stone-950 bg-amber-50">
                                     {isAkumulasiBlangko
                                       ? activeSubs.length > 0 ? totalAkumulasi : '0'
-                                      : includeFilledScores && specificSub ? specificSub.totalNilai : '______'}
+                                      : includeFilledScores && specificSub ? specificSub.totalNilai : '____'}
                                   </td>
                                 </tr>
                               </tbody>
