@@ -844,16 +844,16 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                             <table className="w-full border-collapse border border-stone-300 text-[10px] mb-3 table-fixed">
                               <thead>
                                 <tr className="bg-stone-100 font-semibold text-stone-800">
-                                  <th className="border border-stone-300 p-1 w-7 sm:w-8 text-center break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-0.5 sm:p-1 w-6 sm:w-7 text-center break-words [word-break:break-word] text-[9px]">
                                     No
                                   </th>
-                                  <th className="border border-stone-300 p-1.5 text-left w-[24%] break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-1.5 text-left w-[23%] break-words [word-break:break-word]">
                                     Kriteria Penilaian
                                   </th>
-                                  <th className="border border-stone-300 p-1.5 text-left w-[66%] break-words [word-break:break-word]">
+                                  <th className="border border-stone-300 p-1.5 text-left w-[67%] break-words [word-break:break-word]">
                                     {isAkumulasiBlangko ? 'Rincian Hasil Penilaian Semua Dewan Juri' : 'Kotak Ceklis Penilaian (Skor)'}
                                   </th>
-                                  <th className="border border-stone-300 p-1 w-14 sm:w-16 text-center break-words [word-break:break-word] text-[9px] leading-tight">
+                                  <th className="border border-stone-300 p-0.5 sm:p-1 w-10 sm:w-12 text-center break-words [word-break:break-word] text-[8px] sm:text-[8.5px] leading-tight">
                                     {isAkumulasiBlangko ? 'Nilai Total' : 'Nilai Angka'}
                                   </th>
                                 </tr>
@@ -894,7 +894,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                       </td>
 
                                       {/* Kolom 3: Rincian Hasil Penilaian dari Semua Dewan Juri (Akumulasi) atau Kotak Ceklis (Standar) */}
-                                      <td className="border border-stone-300 p-2.5 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] align-middle">
+                                      <td className="border border-stone-300 p-1.5 sm:p-2 break-words whitespace-normal [word-break:break-word] [overflow-wrap:anywhere] align-middle box-border">
                                         {isAkumulasiBlangko ? (
                                           /* 1. BLANGKO AKUMULASI: RINCIAN PENILAIAN DARI SEMUA DEWAN JURI TANPA ELEMEN CEKLIS */
                                           <div className="space-y-1.5">
@@ -958,22 +958,21 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                             }
 
                                             return (
-                                              <div className="space-y-1">
+                                              <div className="space-y-1 w-full max-w-full">
                                                 {rowsOf15.map((rowChunk, rIdx) => (
-                                                  <div key={rIdx} className="flex flex-nowrap items-center gap-0.5 sm:gap-1 overflow-x-visible">
+                                                  <div key={rIdx} className="flex flex-wrap items-center gap-1 w-full max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere]">
                                                     {rowChunk.map((boxNum) => {
                                                       // Centang kotak poin hanya disesuaikan dengan capaian yang ada
                                                       const isChecked = includeFilledScores && itemNilai ? itemNilai.nilai === boxNum : false;
                                                       return (
                                                         <div
                                                           key={boxNum}
-                                                          className={`inline-flex items-center justify-center min-w-[19px] sm:min-w-[21px] h-4.5 sm:h-5 px-0.5 rounded-xs text-[7.5px] sm:text-[8px] font-mono border shrink-0 transition-all ${
+                                                          className={`inline-flex items-center justify-center min-w-[22px] sm:min-w-[24px] h-6 sm:h-6.5 px-1 rounded text-[9.5px] sm:text-[10.5px] font-mono font-bold border shrink-0 transition-all ${
                                                             isChecked
-                                                              ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
-                                                              : 'bg-white border-stone-300 text-stone-600'
+                                                              ? 'bg-amber-100 border-amber-600 text-amber-950 font-black shadow-xs ring-1 ring-amber-500/50'
+                                                              : 'bg-white border-stone-300 text-stone-800'
                                                           }`}
                                                         >
-                                                          <span className="mr-0.5 text-[7.5px]">{isChecked ? '☑' : '☐'}</span>
                                                           <span>{boxNum}</span>
                                                         </div>
                                                       );
@@ -984,17 +983,14 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                             );
                                           })() : crit.tipe === 'toggle' ? (
                                             /* Tipe Toggle: HANYA tampilkan kotak capaian nilai bersih tanpa deskripsi tambahan */
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex flex-wrap items-center gap-1 w-full max-w-full">
                                               <div
-                                                className={`inline-flex items-center justify-center min-w-[19px] sm:min-w-[21px] h-4.5 sm:h-5 px-1.5 rounded-xs text-[7.5px] sm:text-[8px] font-mono border transition-all ${
+                                                className={`inline-flex items-center justify-center min-w-[22px] sm:min-w-[24px] h-6 sm:h-6.5 px-2 rounded text-[9.5px] sm:text-[10.5px] font-mono font-bold border transition-all ${
                                                   includeFilledScores && itemNilai && itemNilai.nilai > 0
-                                                    ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
-                                                    : 'bg-white border-stone-300 text-stone-600'
+                                                    ? 'bg-amber-100 border-amber-600 text-amber-950 font-black shadow-xs ring-1 ring-amber-500/50'
+                                                    : 'bg-white border-stone-300 text-stone-800'
                                                 }`}
                                               >
-                                                <span className="mr-0.5 text-[7.5px]">
-                                                  {includeFilledScores && itemNilai && itemNilai.nilai > 0 ? '☑' : '☐'}
-                                                </span>
                                                 <span>{crit.bobotNilai || crit.nilaiMaksimal}</span>
                                               </div>
                                             </div>
@@ -1010,21 +1006,20 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                             }
 
                                             return (
-                                              <div className="space-y-1">
+                                              <div className="space-y-1 w-full max-w-full">
                                                 {kelipatanRowsOf15.map((rowChunk, rIdx) => (
-                                                  <div key={rIdx} className="flex flex-nowrap items-center gap-0.5 sm:gap-1 overflow-x-visible">
+                                                  <div key={rIdx} className="flex flex-wrap items-center gap-1 w-full max-w-full break-words [word-break:break-word] [overflow-wrap:anywhere]">
                                                     {rowChunk.map((stepVal) => {
                                                       const isSelected = includeFilledScores && itemNilai ? itemNilai.nilai === stepVal : false;
                                                       return (
                                                         <div
                                                           key={stepVal}
-                                                          className={`inline-flex items-center justify-center min-w-[19px] sm:min-w-[21px] h-4.5 sm:h-5 px-0.5 rounded-xs text-[7.5px] sm:text-[8px] font-mono border shrink-0 ${
+                                                          className={`inline-flex items-center justify-center min-w-[22px] sm:min-w-[24px] h-6 sm:h-6.5 px-1 rounded text-[9.5px] sm:text-[10.5px] font-mono font-bold border shrink-0 ${
                                                             isSelected
-                                                              ? 'bg-amber-100 border-amber-600 text-amber-950 font-bold'
-                                                              : 'bg-white border-stone-300 text-stone-600'
+                                                              ? 'bg-amber-100 border-amber-600 text-amber-950 font-black shadow-xs ring-1 ring-amber-500/50'
+                                                              : 'bg-white border-stone-300 text-stone-800'
                                                           }`}
                                                         >
-                                                          <span className="mr-0.5 text-[7.5px]">{isSelected ? '☑' : '☐'}</span>
                                                           <span>{stepVal}</span>
                                                         </div>
                                                       );
@@ -1034,8 +1029,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                               </div>
                                             );
                                           })() : (
-                                            <div className="border border-dashed border-stone-300 rounded p-1.5 bg-stone-50/50 text-center">
-                                              <span className="font-mono font-bold text-stone-900 text-xs">
+                                            <div className="border border-dashed border-stone-300 rounded px-2 py-0.5 bg-stone-50/50 text-center inline-block min-w-[36px]">
+                                              <span className="font-mono font-bold text-stone-900 text-[10px]">
                                                 {includeFilledScores && itemNilai ? itemNilai.nilai : '____'}
                                               </span>
                                             </div>
@@ -1044,7 +1039,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                       </td>
 
                                        {/* Kolom 4: Nilai Total Akumulasi (Akumulasi) atau Nilai Angka (Standar) - Kompak & Minimalis */}
-                                      <td className="border border-stone-300 p-1 text-center font-mono align-middle bg-stone-50/30">
+                                      <td className="border border-stone-300 p-0.5 sm:p-1 text-center font-mono align-middle bg-stone-50/30 w-10 sm:w-12">
                                         {isAkumulasiBlangko ? (
                                           activeSubs.length > 0 ? (
                                             <div>
@@ -1056,9 +1051,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                             <span className="text-stone-400 font-bold text-xs">0</span>
                                           )
                                         ) : includeFilledScores && itemNilai ? (
-                                          <span className="text-xs sm:text-sm font-black text-stone-950">{itemNilai.nilai}</span>
+                                          <span className="text-[10px] sm:text-xs font-black text-stone-950">{itemNilai.nilai}</span>
                                         ) : (
-                                          <span className="text-stone-400 text-xs">____</span>
+                                          <span className="text-stone-400 text-[9px]">____</span>
                                         )}
                                       </td>
                                     </tr>
