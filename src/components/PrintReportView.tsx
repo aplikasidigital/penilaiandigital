@@ -80,6 +80,12 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
           const pdf = new jsPDF('p', 'mm', 'a4');
           const pdfWidth = pdf.internal.pageSize.getWidth();
           const pdfPageHeight = pdf.internal.pageSize.getHeight();
+          const todayFormatted = new Date().toLocaleDateString('id-ID', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          });
 
           for (let i = 0; i < participantCards.length; i++) {
             const cardEl = participantCards[i];
@@ -106,7 +112,18 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
               margin,
               margin,
               printWidth,
-              Math.min(printHeight, pdfPageHeight - (margin * 2))
+              Math.min(printHeight, pdfPageHeight - (margin * 2) - 6)
+            );
+
+            // Posisi Tanggal Cetak/Unduh berada di bagian paling bawah kertas (footer halaman PDF)
+            pdf.setFontSize(7.5);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`Tanggal Unduh / Cetak: ${todayFormatted}`, margin, pdfPageHeight - 4);
+            pdf.text(
+              `Lembar ${i + 1} dari ${participantCards.length}`,
+              pdfWidth - margin,
+              pdfPageHeight - 4,
+              { align: 'right' }
             );
           }
 
@@ -132,20 +149,39 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfPageHeight = pdf.internal.pageSize.getHeight();
       const totalPdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const todayFormatted = new Date().toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
 
       if (totalPdfHeight <= pdfPageHeight) {
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, totalPdfHeight);
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(`Tanggal Unduh / Cetak: ${todayFormatted}`, 8, pdfPageHeight - 4);
       } else {
         let heightLeft = totalPdfHeight;
         let position = 0;
+        let pageNum = 1;
 
         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text(`Tanggal Unduh / Cetak: ${todayFormatted}`, 8, pdfPageHeight - 4);
+        pdf.text(`Halaman ${pageNum}`, pdfWidth - 8, pdfPageHeight - 4, { align: 'right' });
         heightLeft -= pdfPageHeight;
 
         while (heightLeft > 0) {
           position -= pdfPageHeight;
+          pageNum++;
           pdf.addPage();
           pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, totalPdfHeight);
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(`Tanggal Unduh / Cetak: ${todayFormatted}`, 8, pdfPageHeight - 4);
+          pdf.text(`Halaman ${pageNum}`, pdfWidth - 8, pdfPageHeight - 4, { align: 'right' });
           heightLeft -= pdfPageHeight;
         }
       }
@@ -364,7 +400,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             className="w-full max-w-[210mm] min-h-[297mm] bg-white text-stone-900 p-6 sm:p-10 md:p-12 shadow-2xl rounded-sm print:p-0 print:shadow-none print:m-0 text-xs leading-normal"
           >
             {/* KOP Surat & Header Acara */}
-            <div className="border-b-2 border-stone-900 pb-4 mb-6">
+            <div className={`border-b-2 border-stone-900 pb-4 mb-6 ${!currentMode.startsWith('rekapan') ? 'print:hidden' : ''}`}>
               <div className="flex items-center justify-between gap-4">
                 {eventConfig.logoUrl ? (
                   <img
@@ -396,7 +432,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
             </div>
 
             {/* Document Title */}
-            <div className="text-center my-4">
+            <div className={`text-center my-4 ${!currentMode.startsWith('rekapan') ? 'print:hidden' : ''}`}>
               <h3 className="font-extrabold text-sm uppercase underline tracking-wide">
                 {currentMode.startsWith('rekapan')
                   ? activeJuriUser
@@ -434,7 +470,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
               return (
                 <div key={ml.id} className="mb-8">
-                  <div className="bg-stone-100 p-2.5 rounded border border-stone-300 mb-3 flex items-center justify-between">
+                  <div className={`bg-stone-100 p-2.5 rounded border border-stone-300 mb-3 flex items-center justify-between ${!currentMode.startsWith('rekapan') ? 'print:hidden' : ''}`}>
                     <div>
                       <span className="font-bold text-stone-800">
                         Mata Lomba: [{ml.kode}] {ml.nama}
@@ -785,36 +821,52 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                         return (
                           <div
                             key={pst.id}
-                            className="peserta-blangko-card peserta-page-break bg-white border border-stone-300 p-4 sm:p-5 rounded-lg mb-6 break-inside-avoid print:break-inside-avoid print:border-none print:p-0 print:m-0 print:[break-before:page] print:[page-break-before:always] first:print:[break-before:auto] first:print:[page-break-before:auto]"
+                            className="peserta-blangko-card peserta-page-break bg-white border border-stone-300 p-4 sm:p-5 rounded-lg mb-6 break-inside-avoid print:break-inside-avoid print:border-none print:p-0 print:m-0 flex flex-col justify-between"
                             style={{
                               breakBefore: pstIdx === 0 ? 'auto' : 'page',
                               pageBreakBefore: pstIdx === 0 ? 'auto' : 'always',
+                              breakAfter: pstIdx === lombaPeserta.length - 1 ? 'auto' : 'page',
+                              pageBreakAfter: pstIdx === lombaPeserta.length - 1 ? 'auto' : 'always',
                             }}
                           >
-                            {/* Kop & Identitas Mandiri Lembar Penilaian Peserta */}
-                            <div className="border-b-2 border-stone-800 pb-2 mb-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-extrabold text-xs uppercase tracking-wider text-stone-900">
+                            {/* Kop Surat Resmi Lembar Blanko Penilaian (Konsisten di Setiap Halaman Baru) */}
+                            <div className="kop-surat-lembar border-b-2 border-stone-900 pb-2.5 mb-3">
+                              <div className="flex items-center justify-between gap-3">
+                                {eventConfig.logoUrl ? (
+                                  <img
+                                    src={eventConfig.logoUrl}
+                                    alt="Logo"
+                                    className="w-12 h-12 object-contain shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-11 h-11 rounded-full border-2 border-stone-800 flex items-center justify-center font-bold text-stone-700 text-[10px] shrink-0">
+                                    LOGO
+                                  </div>
+                                )}
+                                <div className="flex-1 text-center">
+                                  <div className="font-extrabold text-xs sm:text-sm uppercase tracking-wider text-stone-900 leading-tight">
                                     {eventConfig.judulKegiatan || 'PANITIA PENYELENGGARA LOMBA DIGITAL'}
                                   </div>
-                                  <div className="text-[10px] text-stone-600 font-medium">
-                                    {eventConfig.penyelenggara || 'S-IMPEL DIGITAL'} | {eventConfig.tempat || 'Jawa Barat'}
+                                  <div className="font-bold text-[10px] sm:text-[11px] uppercase tracking-wide text-stone-700 mt-0.5">
+                                    {eventConfig.penyelenggara || 'S-IMPEL DIGITAL RESMI'}
+                                  </div>
+                                  <div className="text-[9px] text-stone-500 mt-0.5">
+                                    Lokasi: {eventConfig.tempat || 'Jawa Barat'} | Waktu: {eventConfig.tanggalWaktu || 'Oktober 2026'}
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+                                <div className="text-right shrink-0">
+                                  <span className={`inline-block text-[8.5px] font-bold px-2 py-0.5 rounded border ${
                                     isAkumulasiBlangko
                                       ? 'bg-emerald-50 border-emerald-500 text-emerald-800 font-extrabold'
                                       : 'bg-stone-100 border-stone-300 text-stone-700'
                                   }`}>
                                     {isAkumulasiBlangko
-                                      ? 'BLANGKO RESMI: AKUMULASI NILAI DEWAN JURI'
+                                      ? 'BLANGKO RESMI: AKUMULASI DEWAN JURI'
                                       : activeJuriUser
-                                        ? `BLANGKO RESMI: ${activeJuriUser.name}`
+                                        ? `BLANGKO RESMI: ${activeJuriUser.name.toUpperCase()}`
                                         : 'LEMBAR BLANGKO PENILAIAN JURI'}
                                   </span>
-                                  <div className="text-[9px] text-stone-500 font-mono mt-0.5">
+                                  <div className="text-[9px] text-stone-600 font-bold mt-1">
                                     Mata Lomba: [{ml.kode}] {ml.nama}
                                   </div>
                                 </div>
@@ -1109,9 +1161,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                               /* Tanda Tangan Mengakomodasi SELURUH Dewan Juri yang Bertugas */
                               <div className="mt-4 pt-3 border-t border-stone-300">
                                 <div className="flex justify-between items-center mb-2.5">
-                                  <div className="text-[9px] text-stone-500">
-                                    <div>No. Register: REG-AKUMULASI-{(selectedMl?.kode || ml.kode)}/PST-{pst.nomorDada}</div>
-                                    <div>Dicetak Pada: {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</div>
+                                  <div className="text-[9px] text-stone-500 font-mono">
+                                    No. Register: REG-AKUMULASI-{(selectedMl?.kode || ml.kode)}/PST-{pst.nomorDada}
                                   </div>
                                   <div className="text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -1176,9 +1227,8 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                             ) : (
                               /* Tanda Tangan Blangko Standar / Per Juri */
                               <div className="mt-4 pt-3 border-t border-stone-300 flex justify-between items-end text-xs">
-                                <div className="text-[9px] text-stone-500">
-                                  <div>No. Register: REG-{(selectedMl?.kode || ml.kode)}/PST-{pst.nomorDada}</div>
-                                  <div>Dicetak Pada: {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</div>
+                                <div className="text-[9px] text-stone-500 font-mono">
+                                  No. Register: REG-{(selectedMl?.kode || ml.kode)}/PST-{pst.nomorDada}
                                 </div>
                                 <div className="text-center min-w-[140px]">
                                   <p className="text-[10px] text-stone-700 font-medium mb-8">
@@ -1199,6 +1249,28 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                 </div>
                               </div>
                             )}
+
+                            {/* Posisi Tanggal Cetak/Unduh di Bagian Paling Bawah Kertas (Footer Halaman Cetak) */}
+                            <div className="print-page-footer mt-auto pt-3 border-t border-stone-300 flex items-center justify-between text-[9px] text-stone-500 print:text-stone-700 w-full">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-medium">
+                                  REG-{isAkumulasiBlangko ? 'AKUMULASI-' : ''}{(selectedMl?.kode || ml.kode)}/PST-{pst.nomorDada}
+                                </span>
+                                <span className="text-stone-300">•</span>
+                                <span>Dokumen Sah {eventConfig.penyelenggara || 'S-IMPEL DIGITAL RESMI'}</span>
+                              </div>
+                              <div className="font-medium text-right flex items-center gap-1">
+                                <span>Tanggal Cetak / Unduh:</span>
+                                <strong className="text-stone-900 font-bold">
+                                  {new Date().toLocaleDateString('id-ID', {
+                                    weekday: 'long',
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                  })}
+                                </strong>
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
@@ -1210,34 +1282,56 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
             {/* Official Signatures Section (Untuk Dokumen Berita Acara Rekapitulasi) */}
             {currentMode.startsWith('rekapan') && (
-              <div className="mt-8 pt-4 border-t border-stone-300 text-center grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-[10px] text-stone-600 mb-12">
-                    Mengetahui,<br />
-                    <strong>Ketua Dewan Juri</strong>
-                  </p>
-                  <div className="w-32 border-b border-stone-800 mx-auto" />
-                  <p className="text-[9px] text-stone-500 mt-1">( Prof. Dr. Hendra Wijaya, M.Sn )</p>
+              <>
+                <div className="mt-8 pt-4 border-t border-stone-300 text-center grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[10px] text-stone-600 mb-12">
+                      Mengetahui,<br />
+                      <strong>Ketua Dewan Juri</strong>
+                    </p>
+                    <div className="w-32 border-b border-stone-800 mx-auto" />
+                    <p className="text-[9px] text-stone-500 mt-1">( Prof. Dr. Hendra Wijaya, M.Sn )</p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] text-stone-600 mb-12">
+                      Diverifikasi Oleh,<br />
+                      <strong>Sekretaris Panitia</strong>
+                    </p>
+                    <div className="w-32 border-b border-stone-800 mx-auto" />
+                    <p className="text-[9px] text-stone-500 mt-1">( Dra. Hj. Siti Aminah, M.Pd )</p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] text-stone-600 mb-12">
+                      Disahkan Pada Tanggal:<br />
+                      <strong>{new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</strong>
+                    </p>
+                    <div className="w-32 border-b border-stone-800 mx-auto" />
+                    <p className="text-[9px] text-stone-500 mt-1">Koordinator Pelaksana</p>
+                  </div>
                 </div>
 
-                <div>
-                  <p className="text-[10px] text-stone-600 mb-12">
-                    Diverifikasi Oleh,<br />
-                    <strong>Sekretaris Panitia</strong>
-                  </p>
-                  <div className="w-32 border-b border-stone-800 mx-auto" />
-                  <p className="text-[9px] text-stone-500 mt-1">( Dra. Hj. Siti Aminah, M.Pd )</p>
+                {/* Footer Halaman Cetak Dokumen Rekapitulasi */}
+                <div className="print-page-footer mt-6 pt-3 border-t border-stone-300 flex items-center justify-between text-[9px] text-stone-500 print:text-stone-700 w-full">
+                  <div>
+                    <span className="font-mono">REG-SP/{(selectedMl?.kode || 'ALL')}/REKAPAN</span>
+                    <span className="mx-2 text-stone-300">•</span>
+                    <span>Dokumen Berita Acara Rekapitulasi {eventConfig.penyelenggara || 'S-IMPEL DIGITAL RESMI'}</span>
+                  </div>
+                  <div className="font-medium text-right flex items-center gap-1">
+                    <span>Tanggal Cetak / Unduh:</span>
+                    <strong className="text-stone-900 font-bold">
+                      {new Date().toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </strong>
+                  </div>
                 </div>
-
-                <div>
-                  <p className="text-[10px] text-stone-600 mb-12">
-                    Disahkan Pada Tanggal:<br />
-                    <strong>{new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</strong>
-                  </p>
-                  <div className="w-32 border-b border-stone-800 mx-auto" />
-                  <p className="text-[9px] text-stone-500 mt-1">Koordinator Pelaksana</p>
-                </div>
-              </div>
+              </>
             )}
 
           </div>

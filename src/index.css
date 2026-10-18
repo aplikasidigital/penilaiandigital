@@ -65,23 +65,48 @@
     page-break-after: always !important;
   }
 
-  /* Pemisahan Lembaran Baru Otomatis per Nomor Peserta (Page Break Always) */
+  /* Pemisahan Lembaran Baru Otomatis per Nomor Peserta (Page Break Always & Break After) */
   .peserta-blangko-card,
   .peserta-page-break {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
-    break-before: page !important;
-    page-break-before: always !important;
+    break-after: page !important;
+    page-break-after: always !important;
+    min-height: 275mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
     margin-top: 0 !important;
     margin-bottom: 0 !important;
-    padding-top: 4mm !important;
+    padding: 0 !important;
   }
 
-  .peserta-blangko-card:first-of-type,
-  .peserta-page-break:first-of-type {
-    break-before: auto !important;
-    page-break-before: auto !important;
-    padding-top: 0 !important;
+  .peserta-blangko-card:last-child,
+  .peserta-page-break:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
+  /* Kop Surat Resmi Konsisten di Bagian Atas Setiap Halaman Baru */
+  .kop-surat-lembar {
+    display: block !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 3mm !important;
+    border-bottom: 2px solid #1c1917 !important;
+  }
+
+  /* Posisi Tanggal Cetak / Unduh di Bagian Paling Bawah Kertas (Footer Cetak) */
+  .print-page-footer {
+    margin-top: auto !important;
+    padding-top: 3mm !important;
+    padding-bottom: 1mm !important;
+    width: 100% !important;
+    position: relative !important;
+    bottom: 0 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   table {
