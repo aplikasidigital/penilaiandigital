@@ -208,6 +208,14 @@ class SoundService {
 
     // If an audio file URL is supplied (e.g. uploaded by Admin in Settings)
     if (url && url.trim().length > 0) {
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        // YouTube URLs are managed by BackgroundMusicPlayer via YouTube IFrame API
+        this.currentBgmUrl = url;
+        this.isBgmPlayingState = true;
+        this.notifyStateChange();
+        return true;
+      }
+
       this.stopSynthBGM();
       if (this.currentBgmUrl === url && this.bgmAudio) {
         if (this.bgmAudio.paused) {

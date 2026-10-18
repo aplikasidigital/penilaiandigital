@@ -39,7 +39,7 @@ const DEFAULT_EVENT_CONFIG: EventConfig = {
   primaryColor: '#b45309',
   secondaryColor: '#b91c1c',
   videoTeaserUrl: '',
-  bgmAudioUrl: '',
+  bgmAudioUrl: 'https://www.youtube.com/watch?v=qMIQC7_AkIg',
   bgmEnabled: true,
   bgmVolume: 0.35,
   peraturanLomba: [
@@ -1427,7 +1427,12 @@ export const StorageService = {
       return DEFAULT_EVENT_CONFIG;
     }
     try {
-      return { ...DEFAULT_EVENT_CONFIG, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      const merged = { ...DEFAULT_EVENT_CONFIG, ...parsed };
+      if (!merged.bgmAudioUrl || merged.bgmAudioUrl.trim() === '') {
+        merged.bgmAudioUrl = DEFAULT_EVENT_CONFIG.bgmAudioUrl;
+      }
+      return merged;
     } catch {
       return DEFAULT_EVENT_CONFIG;
     }
