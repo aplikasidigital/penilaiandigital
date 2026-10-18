@@ -36,6 +36,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         return { label: 'Super Admin', bg: 'bg-red-500/20 text-red-400 border-red-500/30' };
       case 'shadow_admin':
         return { label: 'Co-Admin', bg: 'bg-orange-500/20 text-orange-400 border-orange-500/30' };
+      case 'operator':
+        return { label: 'Operator', bg: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' };
+      case 'bendahara':
+        return { label: 'Bendahara', bg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
       case 'juri':
         return { label: 'Dewan Juri', bg: 'bg-amber-500/20 text-amber-400 border-amber-500/30' };
       case 'voter':

@@ -262,7 +262,10 @@ export const App: React.FC = () => {
           />
         ) : (
           <>
-            {(currentUser.role === 'super_admin' || currentUser.role === 'shadow_admin') && (
+            {(currentUser.role === 'super_admin' ||
+              currentUser.role === 'shadow_admin' ||
+              currentUser.role === 'operator' ||
+              currentUser.role === 'bendahara') && (
               <AdminDashboard
                 currentUser={currentUser}
                 eventConfig={eventConfig}
@@ -423,6 +426,7 @@ export const App: React.FC = () => {
                 )}
               </button>
             </form>
+
 
             <div className="flex items-center justify-between text-xs text-stone-400 pt-3 border-t border-stone-800">
               <span>

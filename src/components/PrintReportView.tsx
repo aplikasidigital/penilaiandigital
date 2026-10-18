@@ -45,7 +45,9 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
   const allPeserta = StorageService.getPeserta();
   const allSubmissions = StorageService.getSubmissions();
   const allUsers = StorageService.getUsers();
-  const allJuriUsers = allUsers.filter((u) => u.role === 'juri');
+  const allJuriUsers = allUsers.filter(
+    (u, idx, arr) => u.role === 'juri' && arr.findIndex((item) => item.id === u.id) === idx
+  );
 
   const selectedMl = allMataLomba.find((m) => m.id === selectedMataLombaId) || allMataLomba[0];
   const selectedPst = allPeserta.find((p) => p.id === selectedPesertaId);
@@ -215,7 +217,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
               >
                 <option value="">Semua Juri (Gabungan & Akumulasi)</option>
                 {allJuriUsers.map((j, idx) => (
-                  <option key={j.id} value={j.id}>
+                  <option key={`${j.id}-${idx}`} value={j.id}>
                     Juri {idx + 1}: {j.name} ({j.username})
                   </option>
                 ))}
@@ -418,12 +420,15 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                 ? [selectedPst]
                 : allPeserta.filter((p) => p.mataLombaId === ml.id || (Array.isArray(p.mataLombaIds) && p.mataLombaIds.includes(ml.id)));
 
-              // Juri yang bertugas di mata lomba ini
-              const assignedJuris = allJuriUsers.filter(
+              // Juri yang bertugas di mata lomba ini (pastikan unik)
+              const assignedJurisRaw = allJuriUsers.filter(
                 (u) =>
                   (ml.assignedJuriIds && ml.assignedJuriIds.includes(u.id)) ||
                   (Array.isArray(u.assignedMataLombaIds) && u.assignedMataLombaIds.includes(ml.id)) ||
                   allSubmissions.some((s) => s.mataLombaId === ml.id && s.juriId === u.id)
+              );
+              const assignedJuris = assignedJurisRaw.filter(
+                (u, idx, arr) => arr.findIndex((t) => t.id === u.id) === idx
               );
               const displayedJuris = assignedJuris.length > 0 ? assignedJuris : allJuriUsers.slice(0, 3);
 
@@ -561,7 +566,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                     {/* Kolom Dinamis Nilai Per Juri */}
                                     {displayedJuris.map((juri, jIdx) => (
                                       <th
-                                        key={juri.id}
+                                        key={`${juri.id}-${jIdx}`}
                                         className="border border-stone-400 p-1.5 w-16 text-center bg-stone-100"
                                         title={juri.name}
                                       >
@@ -609,7 +614,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                           </td>
 
                                           {/* Nilai masing-masing juri */}
-                                          {displayedJuris.map((juri) => {
+                                          {displayedJuris.map((juri, jIdx) => {
                                             const jSub = allSubmissions.find(
                                               (s) =>
                                                 s.mataLombaId === ml.id &&
@@ -619,7 +624,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                             );
                                             return (
                                               <td
-                                                key={juri.id}
+                                                key={`${juri.id}-${jIdx}`}
                                                 className="border border-stone-400 p-1.5 text-center font-semibold"
                                               >
                                                 {jSub ? jSub.totalNilai : <span className="text-stone-400">-</span>}
@@ -914,7 +919,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
 
                                                 return (
                                                   <div
-                                                    key={juri.id}
+                                                    key={`${juri.id}-${jIdx}`}
                                                     className="bg-stone-50 border border-stone-200/90 rounded p-1.5 flex items-center justify-between shadow-2xs"
                                                   >
                                                     <div className="min-w-0 mr-1.5">
@@ -1131,7 +1136,7 @@ export const PrintReportView: React.FC<PrintReportViewProps> = ({
                                     );
                                     return (
                                       <div
-                                        key={juri.id}
+                                        key={`${juri.id}-${jIdx}`}
                                         className="border border-stone-300 rounded-lg p-2 bg-stone-50/70 flex flex-col justify-between"
                                       >
                                         <div>

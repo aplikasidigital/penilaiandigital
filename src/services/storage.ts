@@ -77,6 +77,24 @@ const DEFAULT_USERS: User[] = [
     createdAt: new Date().toISOString(),
   },
   {
+    id: 'usr_operator',
+    username: 'operator',
+    password: '123#',
+    name: 'Fajar Nugraha (Operator Perlombaan)',
+    role: 'operator',
+    phone: '081314420314',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 'usr_bendahara',
+    username: 'bendahara',
+    password: '123#',
+    name: 'Ibu Ratna Dewi, S.E (Bendahara QRIS)',
+    role: 'bendahara',
+    phone: '081314420313',
+    createdAt: new Date().toISOString(),
+  },
+  {
     id: 'usr_juri1',
     username: 'juri1',
     password: 'juri123',
@@ -852,8 +870,12 @@ export const StorageService = {
       if (ec && ec.length > 0) { localStorage.setItem(STORAGE_KEYS.EVENT_CONFIG, JSON.stringify(ec[0])); hasCloudData = true; }
       if (vr && vr.length > 0) { localStorage.setItem(STORAGE_KEYS.VOTE_RECORDS, JSON.stringify(vr)); hasCloudData = true; }
       if (tr && tr.length > 0) { localStorage.setItem(STORAGE_KEYS.TOPUP_REQUESTS, JSON.stringify(tr)); hasCloudData = true; }
-      if (vc && vc.length > 0) { localStorage.setItem(STORAGE_KEYS.VOTING_CATEGORIES, JSON.stringify(vc)); hasCloudData = true; }
-      if (usrs && usrs.length > 0) { localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(usrs)); hasCloudData = true; }
+      if (usrs && usrs.length > 0) {
+        const seenIds = new Set<string>();
+        const uniqueUsrs = usrs.filter((u: any) => u && u.id && !seenIds.has(u.id) && (seenIds.add(u.id), true));
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(uniqueUsrs));
+        hasCloudData = true;
+      }
 
       // Jika database di Supabase masih kosong baru dibuat, upload data lokal saat ini otomatis
       if (!hasCloudData) {
@@ -958,12 +980,14 @@ export const StorageService = {
         }
       } else if (cleanTable === 'users') {
         const { data } = await supabase.from('users').select('*');
-        if (data) {
+        if (data && Array.isArray(data)) {
+          const seenIds = new Set<string>();
+          const uniqueData = data.filter((u: any) => u && u.id && !seenIds.has(u.id) && (seenIds.add(u.id), true));
           const prev = localStorage.getItem(STORAGE_KEYS.USERS);
-          const next = JSON.stringify(data);
+          const next = JSON.stringify(uniqueData);
           if (prev !== next) {
             localStorage.setItem(STORAGE_KEYS.USERS, next);
-            notifyLocalSubscribers('users', data);
+            notifyLocalSubscribers('users', uniqueData);
           }
         }
       }
@@ -978,16 +1002,71 @@ export const StorageService = {
       return DEFAULT_USERS;
     }
     try {
-      return JSON.parse(raw);
+      const parsed: User[] = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
+        return DEFAULT_USERS;
+      }
+
+      // Deduplikasi ketat berdasarkan ID (mencegah React warning duplicate key)
+      const seenIds = new Set<string>();
+      const seenUsernames = new Set<string>();
+      const deduplicated: User[] = [];
+      let isModified = false;
+
+      for (const u of parsed) {
+        if (!u || !u.id) {
+          isModified = true;
+          continue;
+        }
+        const uId = String(u.id).trim();
+        const uName = (u.username || '').trim().toLowerCase();
+
+        if (seenIds.has(uId)) {
+          // Lewati jika ID sudah pernah ada (mencegah duplicate key)
+          isModified = true;
+          continue;
+        }
+
+        seenIds.add(uId);
+        if (uName) seenUsernames.add(uName);
+        deduplicated.push(u);
+      }
+
+      // Sinkronkan akun default jika belum ada di penyimpanan lokal
+      for (const def of DEFAULT_USERS) {
+        const defName = def.username.toLowerCase();
+        // Hanya tambahkan jika ID belum ada DAN username belum ada
+        if (!seenIds.has(def.id) && !seenUsernames.has(defName)) {
+          seenIds.add(def.id);
+          seenUsernames.add(defName);
+          deduplicated.push(def);
+          isModified = true;
+        }
+      }
+
+      if (isModified || deduplicated.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(deduplicated));
+      }
+      return deduplicated;
     } catch {
       return DEFAULT_USERS;
     }
   },
 
   saveUsers(users: User[]) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-    this.broadcastChange('users', users);
-    fireAndForget(supabase.from('users').upsert(users));
+    // Pastikan tidak ada ID kembar sebelum disimpan ke localStorage dan database
+    const seenIds = new Set<string>();
+    const uniqueUsers: User[] = [];
+    for (const u of users) {
+      if (u && u.id && !seenIds.has(u.id)) {
+        seenIds.add(u.id);
+        uniqueUsers.push(u);
+      }
+    }
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(uniqueUsers));
+    this.broadcastChange('users', uniqueUsers);
+    fireAndForget(supabase.from('users').upsert(uniqueUsers));
   },
 
   getUserById(id: string): User | undefined {

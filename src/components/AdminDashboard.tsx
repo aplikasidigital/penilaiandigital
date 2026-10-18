@@ -69,6 +69,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const isSuperAdmin = currentUser.role === 'super_admin';
   const isShadowAdmin = currentUser.role === 'shadow_admin';
+  const isOperator = currentUser.role === 'operator';
+  const isBendahara = currentUser.role === 'bendahara';
 
   type AdminTab =
     | 'overview'
@@ -82,8 +84,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     | 'jadwal_lokasi'
     | 'settings';
 
+  // Role-Based Access Control (RBAC) Permitted Tab Rules:
+  // 1. Super Admin: Akses penuh 100% ke seluruh menu.
+  // 2. Co-Admin (Shadow Admin): Akses operasional seluruh menu kecuali pengaturan sistem ('settings').
+  // 3. Operator: HANYA boleh mengakses menu:
+  //    - Mata Lomba & Kriteria ('matalomba')
+  //    - Manajemen Peserta ('peserta')
+  //    - Cetak PDF Resmi (A4) ('cetak_laporan')
+  //    - Approval Nilai Juri ('approvals')
+  // 4. Bendahara: HANYA boleh mengakses menu:
+  //    - Verifikasi DANA QRIS ('dana_topup')
+  const isAllowedTab = (tab: AdminTab): boolean => {
+    if (isSuperAdmin) return true;
+    if (isShadowAdmin) return tab !== 'settings';
+    if (isBendahara) return tab === 'dana_topup';
+    if (isOperator) {
+      return tab === 'matalomba' || tab === 'peserta' || tab === 'cetak_laporan' || tab === 'approvals';
+    }
+    return false;
+  };
+
+  const getDefaultTabForRole = (): AdminTab => {
+    if (isBendahara) return 'dana_topup';
+    if (isOperator) return 'matalomba';
+    return 'overview';
+  };
+
   const [activeTab, setActiveTabState] = useState<AdminTab>(() => {
     const saved = typeof window !== 'undefined' ? (localStorage.getItem('simpel_admin_active_tab') as AdminTab) : null;
+    if (isBendahara) return 'dana_topup';
+    if (isOperator) {
+      if (saved && (saved === 'matalomba' || saved === 'peserta' || saved === 'cetak_laporan' || saved === 'approvals')) {
+        return saved;
+      }
+      return 'matalomba';
+    }
     return saved || 'overview';
   });
 
@@ -91,6 +126,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   activeTabRef.current = activeTab;
 
   const setActiveTab = (tab: AdminTab) => {
+    if (!isAllowedTab(tab)) {
+      alert(`Akses Dibatasi: Akun dengan peran ${currentUser.role.toUpperCase()} tidak memiliki izin untuk membuka menu ini.`);
+      return;
+    }
     setActiveTabState(tab);
     if (tab === 'settings') {
       setLocalConfig(StorageService.getEventConfig());
@@ -99,6 +138,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       localStorage.setItem('simpel_admin_active_tab', tab);
     }
   };
+
+  useEffect(() => {
+    if (!isAllowedTab(activeTab)) {
+      setActiveTabState(getDefaultTabForRole());
+    }
+  }, [currentUser.role]);
 
   // Real-time cached lists
   const [mataLombaList, setMataLombaList] = useState(StorageService.getMataLomba());
@@ -1167,7 +1212,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDownloadTemplateUsers = () => {
     soundService.playClick();
     const headers = 'username,password,name,role,phone\n';
-    const sample = 'juri_tamu,juri123,Prof. Tamu Penilai,juri,0812345678\nvoter_baru,voter123,Siswa Pemilih,voter,0819876543';
+    const sample = 'juri_tamu,juri123,Prof. Tamu Penilai,juri,0812345678\noperator_acara,op123,Fajar Operator,operator,0812345679\nbendahara_qris,bd123,Ratna Bendahara,bendahara,0812345680\nvoter_baru,voter123,Siswa Pemilih,voter,0819876543';
     const blob = new Blob([headers + sample], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1196,7 +1241,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const parts = lines[i].split(',').map(p => p.trim());
         if (parts.length >= 4) {
           const [uname, pass, name, roleStr, phone] = parts;
-          const role = (roleStr === 'juri' || roleStr === 'voter' || roleStr === 'shadow_admin') ? roleStr : 'voter';
+          const role = (roleStr === 'juri' || roleStr === 'voter' || roleStr === 'shadow_admin' || roleStr === 'operator' || roleStr === 'bendahara') ? roleStr : 'voter';
 
           if (!curUsers.some(u => u.username.toLowerCase() === uname.toLowerCase())) {
             curUsers.push({
@@ -1361,9 +1406,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${
                 isSuperAdmin
                   ? 'bg-amber-900/60 text-amber-300 border-amber-600/40'
-                  : 'bg-blue-900/60 text-blue-300 border-blue-600/40'
+                  : isShadowAdmin
+                  ? 'bg-blue-900/60 text-blue-300 border-blue-600/40'
+                  : isOperator
+                  ? 'bg-cyan-900/60 text-cyan-300 border-cyan-600/40'
+                  : isBendahara
+                  ? 'bg-emerald-900/60 text-emerald-300 border-emerald-600/40'
+                  : 'bg-stone-800 text-stone-300 border-stone-700'
               }`}>
-                {isSuperAdmin ? 'Super Admin Utama' : 'Admin Bayangan (Co-Admin Operasional)'}
+                {isSuperAdmin
+                  ? 'Super Admin Utama'
+                  : isShadowAdmin
+                  ? 'Admin Bayangan (Co-Admin Operasional)'
+                  : isOperator
+                  ? 'Operator Perlombaan'
+                  : isBendahara
+                  ? 'Bendahara Keuangan'
+                  : currentUser.role}
               </span>
             </div>
             <p className="text-xs text-stone-400">
@@ -1377,17 +1436,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span>Real-Time Sync (Supabase)</span>
           </div>
-          <button
-            onClick={() => {
-              setPrintMode('rekapan_per_matalomba');
-              setPrintModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-stone-950 font-bold rounded-xl text-xs cursor-pointer shadow"
-            title="Integrasi Cetak: Langsung terhubung ke printer fisik / thermal"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            Cetak Printer
-          </button>
+          {isAllowedTab('cetak_laporan') && (
+            <button
+              onClick={() => {
+                setPrintMode('rekapan_per_matalomba');
+                setPrintModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-stone-950 font-bold rounded-xl text-xs cursor-pointer shadow"
+              title="Integrasi Cetak: Langsung terhubung ke printer fisik / thermal"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Cetak Printer
+            </button>
+          )}
           <button
             onClick={onViewPublic}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 rounded-xl text-xs font-semibold cursor-pointer"
@@ -1417,135 +1478,164 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Main Tabs Navigation */}
       <nav className="bg-stone-950/70 border-b border-stone-800 overflow-x-auto">
         <div className="max-w-7xl mx-auto px-4 flex space-x-1 py-2 text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'overview' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            Ringkasan & Monitor
-          </button>
+          {isAllowedTab('overview') && (
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'overview' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Ringkasan & Monitor
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('approvals')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'approvals' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            Approval Nilai Juri
-            {submissions.filter(s => s.status === 'pending').length > 0 && (
-              <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                {submissions.filter(s => s.status === 'pending').length}
-              </span>
-            )}
-          </button>
+          {isAllowedTab('approvals') && (
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'approvals' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Approval Nilai Juri
+              {submissions.filter(s => s.status === 'pending').length > 0 && (
+                <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                  {submissions.filter(s => s.status === 'pending').length}
+                </span>
+              )}
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('matalomba')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'matalomba' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <Award className="w-4 h-4" />
-            Mata Lomba & Kriteria
-          </button>
+          {isAllowedTab('matalomba') && (
+            <button
+              onClick={() => setActiveTab('matalomba')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'matalomba' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              Mata Lomba & Kriteria
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('jadwal_lokasi')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'jadwal_lokasi' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            Jadwal & Lokasi
-          </button>
+          {isAllowedTab('jadwal_lokasi') && (
+            <button
+              onClick={() => setActiveTab('jadwal_lokasi')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'jadwal_lokasi' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              Jadwal & Lokasi
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('peserta')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'peserta' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Manajemen Peserta
-          </button>
+          {isAllowedTab('peserta') && (
+            <button
+              onClick={() => setActiveTab('peserta')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'peserta' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Manajemen Peserta
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'users' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            Manajemen Pengguna
-          </button>
+          {isAllowedTab('users') && (
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'users' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Shield className="w-4 h-4" />
+              Manajemen Pengguna
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('dana_topup')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'dana_topup' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <CreditCard className="w-4 h-4" />
-            Verifikasi DANA QRIS
-            {topupList.filter(t => t.status === 'pending').length > 0 && (
-              <span className="bg-amber-500 text-stone-950 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                {topupList.filter(t => t.status === 'pending').length}
-              </span>
-            )}
-          </button>
+          {isAllowedTab('dana_topup') && (
+            <button
+              onClick={() => setActiveTab('dana_topup')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'dana_topup' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              Verifikasi DANA QRIS
+              {topupList.filter(t => t.status === 'pending').length > 0 && (
+                <span className="bg-amber-500 text-stone-950 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                  {topupList.filter(t => t.status === 'pending').length}
+                </span>
+              )}
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('voting_cat')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'voting_cat' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <Vote className="w-4 h-4" />
-            Kategori Voting
-          </button>
+          {isAllowedTab('voting_cat') && (
+            <button
+              onClick={() => setActiveTab('voting_cat')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'voting_cat' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Vote className="w-4 h-4" />
+              Kategori Voting
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('cetak_laporan')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'cetak_laporan' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
-            }`}
-          >
-            <Printer className="w-4 h-4" />
-            Cetak PDF Resmi (A4)
-          </button>
+          {isAllowedTab('cetak_laporan') && (
+            <button
+              onClick={() => setActiveTab('cetak_laporan')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'cetak_laporan' ? 'bg-amber-600 text-white shadow' : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <Printer className="w-4 h-4" />
+              Cetak PDF Resmi (A4)
+            </button>
+          )}
 
-          {/* Settings Tab - STRICTLY RESTRICTED FOR SHADOW ADMIN */}
-          <button
-            onClick={() => {
-              if (isShadowAdmin) {
-                alert('Akses Dibatasi: Admin Bayangan (Shadow Admin) HANYA diizinkan mengoperasikan sistem dan TIDAK BISA mengubah konfigurasi apa pun yang dibuat oleh Admin Utama!');
-                return;
-              }
-              setActiveTab('settings');
-            }}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
-              activeTab === 'settings'
-                ? 'bg-amber-600 text-white shadow'
-                : isShadowAdmin
-                ? 'text-stone-600 hover:text-stone-500 cursor-not-allowed opacity-60'
-                : 'text-stone-400 hover:text-stone-200'
-            }`}
-            title={isShadowAdmin ? 'Terkunci untuk Admin Bayangan' : 'Pengaturan Sistem'}
-          >
-            <Settings className="w-4 h-4" />
-            Pengaturan & Kontrol Fitur
-            {isShadowAdmin && <span className="text-[10px] text-red-400 ml-1">🔒</span>}
-          </button>
+          {/* Settings Tab - STRICTLY RESTRICTED FOR SHADOW ADMIN, OPERATOR, BENDAHARA */}
+          {isAllowedTab('settings') && (
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl whitespace-nowrap cursor-pointer transition-all ${
+                activeTab === 'settings'
+                  ? 'bg-amber-600 text-white shadow'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+              title="Pengaturan Sistem"
+            >
+              <Settings className="w-4 h-4" />
+              Pengaturan & Kontrol Fitur
+            </button>
+          )}
         </div>
       </nav>
 
       {/* Content Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+        {/* Peringatan jika mengakses tab yang tidak diizinkan */}
+        {!isAllowedTab(activeTab) && (
+          <div className="bg-red-950/40 border border-red-500/40 rounded-2xl p-8 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-red-900/60 text-red-400 flex items-center justify-center mx-auto">
+              <Shield className="w-6 h-6" />
+            </div>
+            <h2 className="text-lg font-bold text-white">Akses Dibatasi (Unauthorized Access)</h2>
+            <p className="text-xs text-stone-300 max-w-md mx-auto">
+              Akun Anda (<strong>{currentUser.name}</strong> - Peran: <span className="font-mono text-amber-300 uppercase">{currentUser.role}</span>) tidak memiliki izin untuk melihat atau mengelola menu ini.
+            </p>
+            <button
+              onClick={() => setActiveTab(getDefaultTabForRole())}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-stone-950 font-bold rounded-xl text-xs cursor-pointer shadow"
+            >
+              Buka Menu yang Diizinkan
+            </button>
+          </div>
+        )}
         {/* TAB 1: OVERVIEW & LIVE MONITOR */}
-        {activeTab === 'overview' && (
+        {isAllowedTab('overview') && activeTab === 'overview' && (
           <div className="space-y-6">
             {/* Quick Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1853,7 +1943,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 2: APPROVAL & VERIFIKASI NILAI JURI */}
-        {activeTab === 'approvals' && (
+        {isAllowedTab('approvals') && activeTab === 'approvals' && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
               <div>
@@ -2002,7 +2092,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 3: DAFTAR MATA LOMBA & PENGATURAN MULTI-JURI */}
-        {activeTab === 'matalomba' && (
+        {isAllowedTab('matalomba') && activeTab === 'matalomba' && (
           <div className="space-y-6">
             <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
@@ -2218,7 +2308,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 4: CONTROL PANEL JADWAL & LOKASI LOMBA */}
-        {activeTab === 'jadwal_lokasi' && (
+        {isAllowedTab('jadwal_lokasi') && activeTab === 'jadwal_lokasi' && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex justify-between items-center border-b border-stone-800 pb-4">
               <div>
@@ -2314,7 +2404,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 5: MANAJEMEN PESERTA */}
-        {activeTab === 'peserta' && (
+        {isAllowedTab('peserta') && activeTab === 'peserta' && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
               <div>
@@ -2433,7 +2523,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 6: MANAJEMEN PENGGUNA (RBAC) */}
-        {activeTab === 'users' && (
+        {isAllowedTab('users') && activeTab === 'users' && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
               <div>
@@ -2489,11 +2579,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-800">
-                  {usersList.map(user => {
+                  {usersList.map((user, uIdx) => {
                     const isPassVisible = visiblePasswords[user.id];
 
                     return (
-                      <tr key={user.id} className="hover:bg-stone-900/50">
+                      <tr key={`${user.id}-${uIdx}`} className="hover:bg-stone-900/50">
                         <td className="p-3 font-bold text-white">{user.name}</td>
                         <td className="p-3 font-mono text-amber-400">{user.username}</td>
                         <td className="p-3 font-mono">
@@ -2516,8 +2606,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               ? 'bg-amber-900/70 text-amber-300 border border-amber-500/40'
                               : user.role === 'shadow_admin'
                               ? 'bg-blue-900/70 text-blue-300 border border-blue-500/40'
-                              : user.role === 'juri'
+                              : user.role === 'operator'
+                              ? 'bg-cyan-900/70 text-cyan-300 border border-cyan-500/40'
+                              : user.role === 'bendahara'
                               ? 'bg-emerald-900/70 text-emerald-300 border border-emerald-500/40'
+                              : user.role === 'juri'
+                              ? 'bg-indigo-900/70 text-indigo-300 border border-indigo-500/40'
                               : 'bg-stone-800 text-stone-300'
                           }`}>
                             {user.role}
@@ -2526,6 +2620,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="p-3 text-stone-400">
                           {user.role === 'voter' && `Saldo: ${user.voteBalance || 0} Suara`}
                           {user.role === 'juri' && `Tugas: ${user.assignedMataLombaIds?.length || 0} Lomba`}
+                          {user.role === 'operator' && 'Akses: Mata Lomba, Peserta, Cetak PDF, Approval Nilai'}
+                          {user.role === 'bendahara' && 'Akses: Khusus Verifikasi DANA QRIS'}
                           {user.role === 'shadow_admin' && 'Akses Operasional Sistem'}
                           {user.role === 'super_admin' && 'Akses Penuh Seluruh Sistem'}
                         </td>
@@ -2559,7 +2655,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 7: VERIFIKASI DANA QRIS */}
-        {activeTab === 'dana_topup' && (
+        {isAllowedTab('dana_topup') && activeTab === 'dana_topup' && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
               <div>
@@ -2748,7 +2844,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 8: KATEGORI VOTING BERBAYAR */}
-        {activeTab === 'voting_cat' && (
+        {isAllowedTab('voting_cat') && activeTab === 'voting_cat' && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
               <div>
@@ -2813,7 +2909,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 9: CETAK & EKSPOR LAPORAN RESMI (PDF STANDAR A4) */}
-        {activeTab === 'cetak_laporan' && (
+        {isAllowedTab('cetak_laporan') && activeTab === 'cetak_laporan' && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 shadow-xl space-y-6">
             <div className="border-b border-stone-800 pb-4">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -2916,7 +3012,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       >
                         <option value="">Semua Juri (Laporan Gabungan & Akumulasi)</option>
                         {usersList.filter(u => u.role === 'juri').map((juri, jIdx) => (
-                          <option key={juri.id} value={juri.id}>
+                          <option key={`${juri.id}-${jIdx}`} value={juri.id}>
                             Juri {jIdx + 1}: {juri.name} ({juri.username})
                           </option>
                         ))}
@@ -2993,7 +3089,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       >
                         <option value="">Semua Juri (Cetak Blangko Tiap Juri)</option>
                         {usersList.filter(u => u.role === 'juri').map((juri, jIdx) => (
-                          <option key={juri.id} value={juri.id}>
+                          <option key={`${juri.id}-${jIdx}`} value={juri.id}>
                             Juri {jIdx + 1}: {juri.name}
                           </option>
                         ))}
@@ -3147,7 +3243,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* TAB 10: PENGATURAN ACARA, TEMA & MULTIMEDIA (HANYA SUPER ADMIN) */}
-        {activeTab === 'settings' && isSuperAdmin && (
+        {isAllowedTab('settings') && activeTab === 'settings' && isSuperAdmin && (
           <div className="bg-stone-950 border border-stone-800 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-stone-800 pb-4">
               <div>
@@ -3950,10 +4046,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Tugaskan Dewan Juri (Dukungan Multi-Juri &gt; 4 Juri):
                 </label>
                 <div className="space-y-1.5 max-h-36 overflow-y-auto bg-stone-950 p-2.5 rounded-lg border border-stone-800">
-                  {usersList.filter(u => u.role === 'juri').map(j => {
+                  {usersList.filter(u => u.role === 'juri').map((j, jIdx) => {
                     const isChecked = mlFormData.assignedJuriIds.includes(j.id);
                     return (
-                      <label key={j.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                      <label key={`${j.id}-${jIdx}`} className="flex items-center gap-2 cursor-pointer text-xs">
                         <input
                           type="checkbox"
                           checked={isChecked}
@@ -4671,6 +4767,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <option value="juri">Dewan Juri / Penilai</option>
                   <option value="voter">Voter / Peserta Voting</option>
+                  <option value="operator">Operator Perlombaan</option>
+                  <option value="bendahara">Bendahara (Verifikasi DANA QRIS)</option>
                   <option value="shadow_admin">Admin Bayangan (Co-Admin Operasional)</option>
                   {isSuperAdmin && <option value="super_admin">Super Admin Utama</option>}
                 </select>
