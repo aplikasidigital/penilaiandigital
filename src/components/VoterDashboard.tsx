@@ -11,7 +11,12 @@ import {
   Sparkles,
   User as UserIcon,
   ShieldCheck,
-  Clock
+  Clock,
+  Eye,
+  FileText,
+  Download,
+  ExternalLink,
+  X
 } from 'lucide-react';
 import { EventConfig, Peserta, TopupRequest, User, VoteRecord, VotingCategory } from '../types';
 import { StorageService } from '../services/storage';
@@ -30,6 +35,7 @@ export const VoterDashboard: React.FC<VoterDashboardProps> = ({
   onLogout,
 }) => {
   const [isDanaModalOpen, setIsDanaModalOpen] = useState(false);
+  const [viewingProofUrl, setViewingProofUrl] = useState<string | null>(null);
   const [selectedPesertaId, setSelectedPesertaId] = useState<string>('');
   const [jumlahVote, setJumlahVote] = useState<number>(1);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -469,7 +475,18 @@ export const VoterDashboard: React.FC<VoterDashboardProps> = ({
                     <div className="font-bold text-white">{tp.jumlahVote} Suara (Rp {tp.hargaTotal.toLocaleString('id-ID')})</div>
                     <div className="text-[10px] text-stone-400">Pengirim: {tp.pengirimNama}</div>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex items-center gap-2">
+                    {tp.buktiTransferUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setViewingProofUrl(tp.buktiTransferUrl)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-stone-800 hover:bg-stone-700 text-amber-300 rounded text-[10px] font-semibold cursor-pointer border border-stone-700 hover:border-amber-500/50 transition-colors"
+                        title="Klik untuk melihat bukti transfer yang di-upload"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>Bukti</span>
+                      </button>
+                    )}
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                       tp.status === 'approved'
                         ? 'bg-emerald-950 text-emerald-300 border border-emerald-600/40'
@@ -500,6 +517,110 @@ export const VoterDashboard: React.FC<VoterDashboardProps> = ({
         onClose={() => setIsDanaModalOpen(false)}
         onSuccess={() => setIsDanaModalOpen(false)}
       />
+
+      {/* Proof Inspection Lightbox Modal */}
+      {viewingProofUrl && (() => {
+        const isPdf = viewingProofUrl.startsWith('data:application/pdf') || viewingProofUrl.toLowerCase().includes('.pdf');
+        return (
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setViewingProofUrl(null);
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-5"
+          >
+            <div className="bg-stone-900 border border-stone-700 rounded-2xl p-4 sm:p-5 max-w-2xl w-full text-center space-y-3.5 shadow-2xl">
+              <div className="flex justify-between items-center border-b border-stone-800 pb-2.5">
+                <div className="flex items-center gap-2 text-left">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    {isPdf ? <FileText className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs sm:text-sm text-white">
+                      Pratinjau Bukti Transfer Pembayaran
+                    </h4>
+                    <span className="text-[10px] text-stone-400">
+                      {isPdf ? 'Format: Dokumen PDF Resmi' : 'Format: Foto / Screenshot Bukti Transfer'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewingProofUrl(null)}
+                  className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition-colors cursor-pointer"
+                  title="Tutup Pratinjau"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {isPdf ? (
+                <div className="space-y-2">
+                  <iframe
+                    src={viewingProofUrl}
+                    title="Dokumen Bukti Transfer PDF"
+                    className="w-full h-[65vh] rounded-xl border border-stone-700 bg-white"
+                  />
+                  <div className="flex items-center justify-between text-[11px] px-1 text-stone-400">
+                    <span>Dokumen PDF Bukti Transfer</span>
+                    <a
+                      href={viewingProofUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      download="bukti-transfer.pdf"
+                      className="text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Buka Dokumen PDF di Tab Baru / Download
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="bg-stone-950 rounded-xl p-2 border border-stone-800 flex items-center justify-center max-h-[68vh] overflow-hidden">
+                    <img
+                      src={viewingProofUrl}
+                      alt="Bukti Transfer"
+                      className="max-h-[64vh] w-auto max-w-full rounded-lg object-contain shadow-md"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] px-1 text-stone-400">
+                    <span>Foto / Screenshot Bukti Transfer</span>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={viewingProofUrl}
+                        download="bukti-transfer.jpg"
+                        className="text-stone-300 hover:text-white hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </a>
+                      <a
+                        href={viewingProofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Buka Gambar Penuh
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-800">
+                <button
+                  type="button"
+                  onClick={() => setViewingProofUrl(null)}
+                  className="px-5 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Tutup Pratinjau
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

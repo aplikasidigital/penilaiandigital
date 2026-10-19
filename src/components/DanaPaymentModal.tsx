@@ -16,7 +16,11 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-  Info
+  Info,
+  Eye,
+  FileText,
+  Download,
+  ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -42,6 +46,8 @@ export const DanaPaymentModal: React.FC<DanaPaymentModalProps> = ({
   const [pengirimNama, setPengirimNama] = useState(currentUser.name || '');
   const [pengirimNomorHp, setPengirimNomorHp] = useState(currentUser.phone || '');
   const [buktiTransferUrl, setBuktiTransferUrl] = useState('');
+  const [buktiFileName, setBuktiFileName] = useState('');
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -71,13 +77,75 @@ export const DanaPaymentModal: React.FC<DanaPaymentModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const fileNameLower = file.name.toLowerCase();
+    const isPdf = file.type === 'application/pdf' || fileNameLower.endsWith('.pdf');
+    const isImage =
+      file.type.startsWith('image/') ||
+      ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.heic', '.heif', '.svg'].some(ext =>
+        fileNameLower.endsWith(ext)
+      );
+
     try {
-      const base64 = await compressImageFile(file, 800, 0.7);
-      setBuktiTransferUrl(base64);
-      setErrorMsg('');
-      soundService.playClick();
+      if (isPdf) {
+        const reader = new FileReader();
+        reader.onload = (uploadEvt) => {
+          const result = uploadEvt.target?.result as string;
+          setBuktiTransferUrl(result);
+          setBuktiFileName(file.name);
+          setErrorMsg('');
+          soundService.playClick();
+        };
+        reader.onerror = () => {
+          setErrorMsg('Gagal membaca file PDF bukti transfer.');
+        };
+        reader.readAsDataURL(file);
+      } else if (isImage) {
+        // Gambar (PNG, JPG, JPEG, Screenshot, WEBP, GIF, BMP, HEIC, dll.)
+        try {
+          const base64 = await compressImageFile(file, 1400, 1400, 0.88);
+          setBuktiTransferUrl(base64 || '');
+          setBuktiFileName(file.name);
+          setErrorMsg('');
+          soundService.playClick();
+        } catch {
+          // Fallback direct DataURL jika kompresi kanvas tidak mendukung format tersebut
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setBuktiTransferUrl(ev.target?.result as string);
+            setBuktiFileName(file.name);
+            setErrorMsg('');
+            soundService.playClick();
+          };
+          reader.readAsDataURL(file);
+        }
+      } else {
+        // Dokumen umum lainnya (DOCX, Dokumen, dll.)
+        const reader = new FileReader();
+        reader.onload = (uploadEvt) => {
+          const result = uploadEvt.target?.result as string;
+          setBuktiTransferUrl(result);
+          setBuktiFileName(file.name);
+          setErrorMsg('');
+          soundService.playClick();
+        };
+        reader.onerror = () => {
+          setErrorMsg('Gagal membaca file dokumen bukti transfer.');
+        };
+        reader.readAsDataURL(file);
+      }
     } catch {
-      setErrorMsg('Gagal memproses file gambar. Gunakan gambar JPG/PNG yang valid.');
+      // Fallback pembacaan data URL langsung jika terjadi error tak terduga
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setBuktiTransferUrl(ev.target?.result as string);
+        setBuktiFileName(file.name);
+        setErrorMsg('');
+        soundService.playClick();
+      };
+      reader.onerror = () => {
+        setErrorMsg('Gagal memproses file. Pastikan format file valid (PNG, JPG, JPEG, Screenshot, PDF, atau dokumen lainnya).');
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -507,37 +575,66 @@ export const DanaPaymentModal: React.FC<DanaPaymentModalProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                  Upload Bukti Transfer (Screenshot / Struk Pembayaran) *
+                  Upload Bukti Transfer (PNG, JPG, JPEG, Screenshot, PDF, & Dokumen/Gambar Lainnya) *
                 </label>
                 <div className="space-y-2">
                   <label className="w-full px-4 py-3 bg-stone-950 border border-stone-700 border-dashed rounded-xl text-xs text-stone-400 hover:text-stone-200 hover:border-amber-500 flex items-center justify-center gap-2 cursor-pointer transition-all">
                     <Upload className="w-4 h-4 text-amber-400" />
-                    <span>{buktiTransferUrl ? 'Ganti File Bukti Transfer' : 'Pilih File Gambar Screenshot...'}</span>
+                    <span>{buktiTransferUrl ? 'Ganti File Bukti Transfer' : 'Pilih File Screenshot / Foto / Dokumen PDF / Bukti Transfer...'}</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*, application/pdf, .png, .jpg, .jpeg, .webp, .gif, .bmp, .heic, .heif, .pdf, .doc, .docx, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       onChange={handleFileChange}
                       className="hidden"
                     />
                   </label>
 
-                  {buktiTransferUrl && (
-                    <div className="p-2.5 bg-stone-950 rounded-xl border border-stone-800 flex items-center gap-3">
-                      <img
-                        src={buktiTransferUrl}
-                        alt="Preview Bukti"
-                        className="w-14 h-14 object-cover rounded-lg border border-stone-700"
-                      />
-                      <div className="text-left flex-1 min-w-0">
-                        <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Bukti Gambar Terlampir
-                        </span>
-                        <p className="text-[10px] text-stone-400 truncate">
-                          Siap dikirim untuk verifikasi admin
-                        </p>
+                  {buktiTransferUrl && (() => {
+                    const isPdf = buktiTransferUrl.startsWith('data:application/pdf') || (buktiFileName && buktiFileName.toLowerCase().endsWith('.pdf'));
+                    return (
+                      <div 
+                        onClick={() => setIsPreviewModalOpen(true)}
+                        className="p-2.5 bg-stone-950 rounded-xl border border-stone-800 hover:border-amber-500/50 flex items-center justify-between gap-3 cursor-pointer transition-colors group"
+                        title="Klik untuk membuka pratinjau bukti transfer secara langsung"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {isPdf ? (
+                            <div className="w-12 h-12 rounded-lg bg-red-950/60 border border-red-500/40 flex items-center justify-center shrink-0 text-red-400 group-hover:scale-105 transition-transform">
+                              <FileText className="w-6 h-6" />
+                            </div>
+                          ) : (
+                            <img
+                              src={buktiTransferUrl}
+                              alt="Preview Bukti"
+                              className="w-12 h-12 object-cover rounded-lg border border-stone-700 shrink-0 group-hover:scale-105 transition-transform"
+                            />
+                          )}
+                          <div className="text-left flex-1 min-w-0">
+                            <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              {isPdf ? 'Dokumen PDF Terlampir' : 'Bukti Gambar/Screenshot Terlampir'}
+                            </span>
+                            <p className="text-[10px] text-stone-400 truncate">
+                              {buktiFileName || (isPdf ? 'bukti-transfer.pdf' : 'screenshot-bukti.jpg')}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsPreviewModalOpen(true);
+                          }}
+                          className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0 cursor-pointer transition-colors"
+                          title="Klik untuk melihat pratinjau bukti transfer secara langsung"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Lihat Pratinjau</span>
+                        </button>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -634,6 +731,110 @@ export const DanaPaymentModal: React.FC<DanaPaymentModalProps> = ({
         )}
 
       </div>
+
+      {/* Lightbox / Preview Modal Bukti Transfer Langsung */}
+      {isPreviewModalOpen && buktiTransferUrl && (() => {
+        const isPdf = buktiTransferUrl.startsWith('data:application/pdf') || (buktiFileName && buktiFileName.toLowerCase().endsWith('.pdf'));
+        return (
+          <div 
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsPreviewModalOpen(false);
+            }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-3 sm:p-5"
+          >
+            <div className="bg-stone-900 border border-stone-700 rounded-2xl p-4 sm:p-5 max-w-2xl w-full text-center space-y-3.5 shadow-2xl">
+              <div className="flex justify-between items-center border-b border-stone-800 pb-2.5">
+                <div className="flex items-center gap-2 text-left">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    {isPdf ? <FileText className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs sm:text-sm text-white">
+                      Pratinjau Bukti Pembayaran
+                    </h4>
+                    <span className="text-[10px] text-stone-400">
+                      {isPdf ? 'Format: Dokumen PDF Resmi' : 'Format: Foto / Screenshot Bukti Transfer'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-stone-800 transition-colors cursor-pointer"
+                  title="Tutup Pratinjau"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {isPdf ? (
+                <div className="space-y-2">
+                  <iframe
+                    src={buktiTransferUrl}
+                    title="Pratinjau PDF Bukti Transfer"
+                    className="w-full h-[60vh] rounded-xl border border-stone-700 bg-white"
+                  />
+                  <div className="flex items-center justify-between text-[11px] px-1 text-stone-400">
+                    <span className="truncate">{buktiFileName || 'dokumen-bukti-transfer.pdf'}</span>
+                    <a
+                      href={buktiTransferUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      download={buktiFileName || 'bukti-transfer.pdf'}
+                      className="text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Buka Dokumen PDF di Tab Baru / Download
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="bg-stone-950 rounded-xl p-2 border border-stone-800 flex items-center justify-center max-h-[64vh] overflow-hidden">
+                    <img
+                      src={buktiTransferUrl}
+                      alt="Pratinjau Bukti Transfer"
+                      className="max-h-[60vh] w-auto max-w-full rounded-lg object-contain shadow-md"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] px-1 text-stone-400">
+                    <span className="truncate">{buktiFileName || 'screenshot-bukti.jpg'}</span>
+                    <div className="flex items-center gap-3">
+                      <a
+                        href={buktiTransferUrl}
+                        download={buktiFileName || 'bukti-transfer.jpg'}
+                        className="text-stone-300 hover:text-white hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </a>
+                      <a
+                        href={buktiTransferUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-amber-400 hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Buka Gambar Penuh
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-800">
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewModalOpen(false)}
+                  className="px-5 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                >
+                  Tutup Pratinjau
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

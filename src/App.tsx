@@ -21,8 +21,7 @@ import {
   Sparkles,
   AlertCircle,
   KeyRound,
-  CheckCircle2,
-  UserPlus
+  CheckCircle2
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -47,11 +46,8 @@ export const App: React.FC = () => {
   const [isDanaModalOpen, setIsDanaModalOpen] = useState(false);
 
   // Login form state
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [phoneInput, setPhoneInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
   const refreshState = useCallback(() => {
@@ -83,34 +79,23 @@ export const App: React.FC = () => {
       }
     });
 
-    // Listen to Supabase Google OAuth state changes
+    // Listen to Supabase Google OAuth state changes (Hanya akun terdaftar oleh Admin yang diizinkan)
     const unsubscribeAuth = onAuthStateChange((event: any, session: any) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const sbUser = session.user;
         const existingUsers = StorageService.getUsers();
         const userEmail = sbUser.email || '';
-        const userName =
-          sbUser.user_metadata?.full_name ||
-          sbUser.user_metadata?.name ||
-          userEmail.split('@')[0] ||
-          'Pengguna Google';
 
-        let matchedUser = existingUsers.find(
-          u => u.id === sbUser.id || (userEmail && (u.username === userEmail || u.phone === userEmail))
+        const matchedUser = existingUsers.find(
+          u => u.id === sbUser.id || (userEmail && (u.username.toLowerCase() === userEmail.toLowerCase() || u.phone === userEmail))
         );
 
         if (!matchedUser) {
-          matchedUser = {
-            id: sbUser.id,
-            username: userEmail || `google_${sbUser.id.substring(0, 8)}`,
-            name: userName,
-            role: 'voter',
-            phone: sbUser.phone || userEmail,
-            avatarUrl: sbUser.user_metadata?.avatar_url || '',
-            voteBalance: 0,
-            createdAt: new Date().toISOString(),
-          };
-          StorageService.saveUsers([...existingUsers, matchedUser]);
+          // Tolak akses jika akun belum didaftarkan langsung oleh Administrator
+          setLoginError('Akun belum terdaftar di sistem. Akses hanya diberikan untuk akun resmi yang telah didaftarkan langsung oleh Administrator.');
+          setIsLoginModalOpen(true);
+          signOutFromSupabase().catch(() => {});
+          return;
         }
 
         StorageService.setCurrentUser(matchedUser);
@@ -168,8 +153,7 @@ export const App: React.FC = () => {
   const handleOpenVotingModal = () => {
     soundService.playClick();
     if (!currentUser) {
-      // Prompt user to login or quick register as voter first
-      setAuthMode('login');
+      // Prompt user to login with their registered account first
       setIsLoginModalOpen(true);
     } else {
       setIsDanaModalOpen(true);
@@ -181,60 +165,23 @@ export const App: React.FC = () => {
     setLoginError('');
     soundService.playClick();
 
-    if (authMode === 'login') {
-      const users = StorageService.getUsers();
-      const matched = users.find(
-        u => u.username.toLowerCase() === usernameInput.trim().toLowerCase() && u.password === passwordInput
-      );
+    const users = StorageService.getUsers();
+    const matched = users.find(
+      u => u.username.toLowerCase() === usernameInput.trim().toLowerCase() && u.password === passwordInput
+    );
 
-      if (!matched) {
-        setLoginError('Nama pengguna atau kata sandi tidak cocok. Silakan periksa kembali.');
-        return;
-      }
-
-      soundService.playSuccessFanfare();
-      StorageService.setCurrentUser(matched);
-      setCurrentUser(matched);
-      setIsLoginModalOpen(false);
-      setUsernameInput('');
-      setPasswordInput('');
-      changeView('dashboard');
-    } else {
-      // Register new Voter account
-      if (!usernameInput.trim() || !passwordInput.trim() || !nameInput.trim()) {
-        setLoginError('Mohon lengkapi nama lengkap, username, dan password.');
-        return;
-      }
-
-      const users = StorageService.getUsers();
-      if (users.some(u => u.username.toLowerCase() === usernameInput.trim().toLowerCase())) {
-        setLoginError('Username ini telah digunakan. Gunakan username lain.');
-        return;
-      }
-
-      const newUser: User = {
-        id: `usr_${Date.now()}`,
-        username: usernameInput.trim(),
-        password: passwordInput,
-        name: nameInput.trim(),
-        role: 'voter',
-        phone: phoneInput.trim() || '081200000000',
-        voteBalance: 0,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updated = [...users, newUser];
-      StorageService.saveUsers(updated);
-      StorageService.setCurrentUser(newUser);
-      setCurrentUser(newUser);
-      soundService.playSuccessFanfare();
-      setIsLoginModalOpen(false);
-      setUsernameInput('');
-      setPasswordInput('');
-      setNameInput('');
-      setPhoneInput('');
-      changeView('dashboard');
+    if (!matched) {
+      setLoginError('Nama pengguna atau kata sandi tidak cocok. Pastikan akun Anda telah didaftarkan oleh Administrator.');
+      return;
     }
+
+    soundService.playSuccessFanfare();
+    StorageService.setCurrentUser(matched);
+    setCurrentUser(matched);
+    setIsLoginModalOpen(false);
+    setUsernameInput('');
+    setPasswordInput('');
+    changeView('dashboard');
   };
 
   return (
@@ -332,12 +279,10 @@ export const App: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-amber-200 font-display">
-                  {authMode === 'login' ? 'Masuk ke Sistem Digital' : 'Daftar Akun Voter Baru'}
+                  Masuk ke Sistem Digital
                 </h3>
                 <p className="text-xs text-stone-400">
-                  {authMode === 'login'
-                    ? 'Masukkan username dan kata sandi resmi Anda untuk melanjutkan'
-                    : 'Daftar untuk melakukan voting peserta terfavorit'}
+                  Masukkan username dan kata sandi akun resmi Anda yang telah didaftarkan oleh Administrator
                 </p>
               </div>
             </div>
@@ -350,37 +295,7 @@ export const App: React.FC = () => {
             )}
 
             {/* Form */}
-            <form onSubmit={handleLoginFormSubmit} className="space-y-3.5 mb-6">
-              {authMode === 'register' && (
-                <>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                      Nama Lengkap
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={nameInput}
-                      onChange={e => setNameInput(e.target.value)}
-                      placeholder="Contoh: Rian Pratama"
-                      className="w-full px-3.5 py-2.5 bg-stone-950 border border-stone-700 rounded-xl text-xs text-stone-100 focus:border-amber-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                      Nomor HP / WhatsApp (Aktif)
-                    </label>
-                    <input
-                      type="tel"
-                      value={phoneInput}
-                      onChange={e => setPhoneInput(e.target.value)}
-                      placeholder="Contoh: 081234567890"
-                      className="w-full px-3.5 py-2.5 bg-stone-950 border border-stone-700 rounded-xl text-xs text-stone-100 focus:border-amber-500 outline-none"
-                    />
-                  </div>
-                </>
-              )}
-
+            <form onSubmit={handleLoginFormSubmit} className="space-y-3.5 mb-5">
               <div>
                 <label className="block text-[11px] font-semibold text-stone-300 mb-1">
                   Username
@@ -413,36 +328,13 @@ export const App: React.FC = () => {
                 type="submit"
                 className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-bold rounded-xl text-xs shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 mt-4"
               >
-                {authMode === 'login' ? (
-                  <>
-                    <LogIn className="w-4 h-4" />
-                    <span>Masuk Sekarang</span>
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4" />
-                    <span>Daftar & Masuk</span>
-                  </>
-                )}
+                <LogIn className="w-4 h-4" />
+                <span>Masuk Sekarang</span>
               </button>
             </form>
 
-
-            <div className="flex items-center justify-between text-xs text-stone-400 pt-3 border-t border-stone-800">
-              <span>
-                {authMode === 'login' ? 'Belum punya akun Voter?' : 'Sudah punya akun?'}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  soundService.playClick();
-                  setAuthMode(authMode === 'login' ? 'register' : 'login');
-                  setLoginError('');
-                }}
-                className="text-amber-400 hover:underline font-semibold cursor-pointer"
-              >
-                {authMode === 'login' ? 'Daftar Sebagai Voter' : 'Masuk di sini'}
-              </button>
+            <div className="text-center text-[11px] text-stone-500 pt-3 border-t border-stone-800">
+              Akses akun terdaftar & resmi. Pendaftaran akun hanya dikelola langsung oleh Administrator.
             </div>
           </div>
         </div>
